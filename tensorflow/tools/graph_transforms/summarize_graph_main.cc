@@ -35,11 +35,93 @@ namespace tensorflow {
 namespace graph_transforms {
 namespace {
 
-Status SummarizeGraph(const GraphDef& graph) {
+void PrintNodeInfo(const NodeDef* node) {
+  TensorShape shape;
+  if (node->attr().count("shape")) {
+    TensorShapeProto shape_proto = node->attr().at("shape").shape();
+    shape = TensorShape(shape_proto);
+  }
+  DataType dtype = DT_INVALID;
+  if (node->attr().count("dtype")) {
+    dtype = node->attr().at("dtype").type();
+  }
+  std::cout << "(name=" << node->name();
+  std::cout << ", type=" << DataTypeString(dtype) << "(" << dtype << ")";
+  std::cout << ", shape=" << shape.DebugString() << ") ";
+}
+
+void PrintBenchmarkUsage(const std::vector<const NodeDef*> placeholders,
+                         const std::vector<const NodeDef*> variables,
+                         const std::vector<const NodeDef*> outputs,
+                         const string& graph_path) {
+  std::vector<const NodeDef*> all_inputs(placeholders);
+  all_inputs.insert(all_inputs.end(), variables.begin(), variables.end());
+
+  std::vector<string> input_layers;
+  std::vector<string> input_layer_types;
+  std::vector<string> input_layer_shapes;
+  for (const NodeDef* node : all_inputs) {
+    input_layers.push_back(node->name());
+    DataType dtype = DT_INVALID;
+    if (node->attr().count("dtype")) {
+      dtype = node->attr().at("dtype").type();
+    }
+    input_layer_types.push_back(DataTypeString(dtype));
+    std::vector<int64> sizes;
+    TensorShape shape;
+    if (node->attr().count("shape")) {
+      TensorShapeProto shape_proto = node->attr().at("shape").shape();
+      shape = TensorShape(shape_proto);
+    }
+    for (int i = 0; i < shape.dims(); ++i) {
+      sizes.push_back(shape.dim_size(i));
+    }
+    string sizes_string = str_util::Join(sizes, ",");
+    input_layer_shapes.push_back(sizes_string);
+  }
+  std::vector<string> output_layers;
+  for (const NodeDef* node : outputs) {
+    output_layers.push_back(node->name());
+  }
+  string input_layer_value = str_util::Join(input_layers, ",");
+  string input_layer_type_value = str_util::Join(input_layer_types, ",");
+  string input_layer_shape_value = str_util::Join(input_layer_shapes, ":");
+  string output_layer_value = str_util::Join(output_layers, ",");
+
+  std::cout << "To use with tensorflow/tools/benchmark:benchmark_model try "
+               "these arguments:"
+            << std::endl;
+  std::cout << "bazel run tensorflow/tools/benchmark:benchmark_model --";
+  std::cout << " --graph=" << graph_path;
+  std::cout << " --show_flops";
+  std::cout << " --logtostderr";
+  std::cout << " --input_layer=" << input_layer_value;
+  std::cout << " --input_layer_type=" << input_layer_type_value;
+  std::cout << " --input_layer_shape=" << input_layer_shape_value;
+  std::cout << " --output_layer=" << output_layer_value;
+  std::cout << std::endl;
+}
+
+Status PrintStructure(const GraphDef& graph) {
+  GraphDef sorted_graph;
+  TF_RETURN_IF_ERROR(SortByExecutionOrder(graph, &sorted_graph));
+  for (const NodeDef& node : sorted_graph.node()) {
+    std::cout << node.name() << " (" << node.op() << "): ["
+              << str_util::Join(node.input(), ", ") << "]" << std::endl;
+  }
+  return Status::OK();
+}
+
+Status SummarizeGraph(const GraphDef& graph, const string& graph_path,
+                      bool print_structure) {
   std::vector<const NodeDef*> placeholders;
+  std::vector<const NodeDef*> variables;
   for (const NodeDef& node : graph.node()) {
     if (node.op() == "Placeholder") {
       placeholders.push_back(&node);
+    }
+    if (node.op() == "Variable" || node.op() == "VariableV2") {
+      variables.push_back(&node);
     }
   }
 
@@ -48,15 +130,17 @@ Status SummarizeGraph(const GraphDef& graph) {
   } else {
     std::cout << "Found " << placeholders.size() << " possible inputs: ";
     for (const NodeDef* node : placeholders) {
-      TensorShape shape;
-      if (node->attr().count("shape")) {
-        TensorShapeProto shape_proto = node->attr().at("shape").shape();
-        shape = TensorShape(shape_proto);
-      }
-      DataType dtype = node->attr().at("dtype").type();
-      std::cout << "(name=" << node->name();
-      std::cout << ", type=" << DataTypeString(dtype) << "(" << dtype << ")";
-      std::cout << ", shape=" << shape.DebugString() << ") ";
+      PrintNodeInfo(node);
+    }
+    std::cout << std::endl;
+  }
+
+  if (variables.empty()) {
+    std::cout << "No variables spotted." << std::endl;
+  } else {
+    std::cout << "Found " << variables.size() << " variables: ";
+    for (const NodeDef* node : variables) {
+      PrintNodeInfo(node);
     }
     std::cout << std::endl;
   }
@@ -66,7 +150,7 @@ Status SummarizeGraph(const GraphDef& graph) {
   std::vector<const NodeDef*> outputs;
   for (const NodeDef& node : graph.node()) {
     if ((output_map.count(node.name()) == 0) && (node.op() != "Const") &&
-        (node.op() != "Assign")) {
+        (node.op() != "Assign") && (node.op() != "NoOp")) {
       outputs.push_back(&node);
     }
   }
@@ -82,19 +166,11 @@ Status SummarizeGraph(const GraphDef& graph) {
     std::cout << std::endl;
   }
 
-  int const_count = 0;
-  int variable_count = 0;
-  int identity_count = 0;
+  int64 const_parameter_count = 0;
+  int64 variable_parameter_count = 0;
   int control_edge_count = 0;
   std::map<string, int> device_counts;
   for (const NodeDef& node : graph.node()) {
-    if (node.op() == "Const") {
-      ++const_count;
-    } else if (node.op() == "Variable") {
-      ++variable_count;
-    } else if (node.op() == "Identity") {
-      ++identity_count;
-    }
     for (const string& input : node.input()) {
       if (input.substr(0, 1) == "^") {
         ++control_edge_count;
@@ -103,11 +179,29 @@ Status SummarizeGraph(const GraphDef& graph) {
     if (node.device() != "") {
       ++device_counts[node.device()];
     }
+    if ((node.op() == "Const") || (node.op() == "Variable") ||
+        (node.op() == "VariableV2")) {
+      Tensor tensor;
+      if (node.attr().count("value") &&
+          tensor.FromProto(node.attr().at("value").tensor())) {
+        const size_t num_elements = tensor.NumElements();
+        if (node.op() == "Const") {
+          const_parameter_count += num_elements;
+        } else {
+          variable_parameter_count += num_elements;
+        }
+      } else {
+        LOG(WARNING) << "Decoding Tensor failed for node" << node.name();
+      }
+    }
   }
 
-  std::cout << "Found " << const_count << " consts, " << variable_count
-            << " variables, " << identity_count << " identities, and "
-            << control_edge_count << " control_edges" << std::endl;
+  std::cout << "Found " << const_parameter_count << " ("
+            << strings::HumanReadableNum(const_parameter_count)
+            << ") const parameters, " << variable_parameter_count << " ("
+            << strings::HumanReadableNum(variable_parameter_count)
+            << ") variable parameters, and " << control_edge_count
+            << " control_edges" << std::endl;
   if (!device_counts.empty()) {
     for (const auto& device_info : device_counts) {
       std::cout << device_info.second << " nodes assigned to device '"
@@ -148,17 +242,22 @@ Status SummarizeGraph(const GraphDef& graph) {
   }
   std::cout << std::endl;
 
+  PrintBenchmarkUsage(placeholders, variables, outputs, graph_path);
+
+  if (print_structure) {
+    TF_RETURN_IF_ERROR(PrintStructure(graph));
+  }
+
   return Status::OK();
 }
 
 int ParseFlagsAndSummarizeGraph(int argc, char* argv[]) {
   string in_graph = "";
-  string out_graph = "";
-  string inputs_string = "";
-  string outputs_string = "";
-  string transforms_string = "";
+  bool print_structure = false;
   std::vector<Flag> flag_list = {
       Flag("in_graph", &in_graph, "input graph file name"),
+      Flag("print_structure", &print_structure,
+           "whether to print the network connections of the graph"),
   };
   string usage = Flags::Usage(argv[0], flag_list);
 
@@ -180,7 +279,7 @@ int ParseFlagsAndSummarizeGraph(int argc, char* argv[]) {
   }
 
   GraphDef graph_def;
-  Status load_status = ReadBinaryProto(Env::Default(), in_graph, &graph_def);
+  Status load_status = LoadTextOrBinaryGraphFile(in_graph, &graph_def);
   if (!load_status.ok()) {
     LOG(ERROR) << "Loading graph '" << in_graph << "' failed with "
                << load_status.error_message();
@@ -188,7 +287,8 @@ int ParseFlagsAndSummarizeGraph(int argc, char* argv[]) {
     return -1;
   }
 
-  Status summarize_result = SummarizeGraph(graph_def);
+  Status summarize_result =
+      SummarizeGraph(graph_def, in_graph, print_structure);
   if (!summarize_result.ok()) {
     LOG(ERROR) << summarize_result.error_message() << "\n" << usage;
     return -1;

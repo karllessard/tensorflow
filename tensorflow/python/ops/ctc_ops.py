@@ -35,11 +35,9 @@ def ctc_loss(labels, inputs, sequence_length,
 
   This op implements the CTC loss as presented in the article:
 
-  A. Graves, S. Fernandez, F. Gomez, J. Schmidhuber.
+  [A. Graves, S. Fernandez, F. Gomez, J. Schmidhuber.
   Connectionist Temporal Classification: Labelling Unsegmented Sequence Data
-  with Recurrent Neural Networks. ICML 2006, Pittsburgh, USA, pp. 369-376.
-
-  http://www.cs.toronto.edu/~graves/icml_2006.pdf
+  with Recurrent Neural Networks. ICML 2006, Pittsburgh, USA, pp. 369-376.](http://www.cs.toronto.edu/~graves/icml_2006.pdf)
 
   Input requirements:
 
@@ -165,7 +163,10 @@ def _CTCLossGrad(op, grad_loss, _):
   # due to the fused implementation's interaction with tf.gradients(),
   # so we make sure we prevent silently incorrect results by raising
   # an error if the second derivative is requested via prevent_gradient.
-  grad_without_gradient = array_ops.prevent_gradient(op.outputs[1])
+  grad_without_gradient = array_ops.prevent_gradient(
+      op.outputs[1], message="Currently there is no way to take the second "
+      " derivative of ctc_loss due to the fused implementation's interaction "
+      " with tf.gradients()")
   # Return gradient for inputs and None for
   # labels_indices, labels_values and sequence_length
   return [_BroadcastMul(grad_loss, grad_without_gradient), None, None, None]
@@ -183,8 +184,8 @@ def ctc_greedy_decoder(inputs, sequence_length, merge_repeated=True):
   only the first of these is emitted.  The sequence `A B B * B * B` (where '*'
   is the blank label) becomes
 
-    * `A B` if `merge_repeated=True`.
-    * `A B B B B B` if `merge_repeated=False`.
+    * `A B B B` if `merge_repeated=True`.
+    * `A B B B B` if `merge_repeated=False`.
 
   Args:
     inputs: 3-D `float` `Tensor` sized
@@ -194,7 +195,7 @@ def ctc_greedy_decoder(inputs, sequence_length, merge_repeated=True):
     merge_repeated: Boolean.  Default: True.
 
   Returns:
-    A tuple `(decoded, log_probabilities)` where
+    A tuple `(decoded, neg_sum_logits)` where
     decoded: A single-element list. `decoded[0]`
       is an `SparseTensor` containing the decoded outputs s.t.:
       `decoded.indices`: Indices matrix `(total_decoded_outputs x 2)`.
@@ -203,8 +204,8 @@ def ctc_greedy_decoder(inputs, sequence_length, merge_repeated=True):
         The vector stores the decoded classes.
       `decoded.shape`: Shape vector, size `(2)`.
         The shape values are: `[batch_size, max_decoded_length]`
-    log_probability: A `float` matrix `(batch_size x 1)` containing sequence
-        log-probabilities.
+    neg_sum_logits: A `float` matrix `(batch_size x 1)` containing, for the
+        sequence found, the negative of the sum of the greatest logit at each timeframe.
   """
   outputs = gen_ctc_ops._ctc_greedy_decoder(
       inputs, sequence_length, merge_repeated=merge_repeated)

@@ -1,40 +1,21 @@
 package org.tensorflow.ops;
 
-import org.tensorflow.InputSource;
+import org.tensorflow.InputListSource;
 import org.tensorflow.Operation;
-import org.tensorflow.OperationBuilder;
 import org.tensorflow.Output;
 
-public abstract class Node implements InputSource {
+public abstract class Node {
 
-  protected Node(Scope scope, String type, String name, InputSource... inputs) {
-    super();
-    opBuilder = scope.beginNode(this, type, name);
-    for (InputSource input : inputs) {
-      opBuilder.addInput(input);
+  protected static Output[] makeOutputs(
+      Operation op, int start, String name) {
+    int len = op.outputListLength(name);
+    final Output[] array = new Output[len];
+
+    int end = start + len;
+    for (int i = start; i < end; i++) {
+      array[i - start] = op.output(i);
     }
+    return array;
   }
 
-  @Override
-  public Output input() {
-    return output(0);
-  }
-
-  public Output output(int idx) {
-    return op().output(idx);
-  }
-
-  public Operation op() {
-    if (op == null) {
-      op = opBuilder.build();
-    }
-    return op;
-  }
-
-  protected OperationBuilder opBuilder() {
-    return opBuilder;
-  }
-
-  private final OperationBuilder opBuilder;
-  private Operation op;
 }

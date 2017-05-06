@@ -93,8 +93,8 @@ Status ReadTensorFromImageFile(string file_name, const int input_height,
 
   string input_name = "file_reader";
   string output_name = "normalized";
-  auto file_reader = tensorflow::ops::ReadFile(root.WithOpName(input_name),
-                                               file_name);
+  auto file_reader =
+      tensorflow::ops::ReadFile(root.WithOpName(input_name), file_name);
   // Now try to figure out what kind of file it is and decode it.
   const int wanted_channels = 3;
   tensorflow::Output image_reader;
@@ -163,7 +163,7 @@ Status GetTopLabels(const std::vector<Tensor>& outputs, int how_many_labels,
   using namespace ::tensorflow::ops;  // NOLINT(build/namespaces)
 
   string output_name = "top_k";
-  TopKV2(root.WithOpName(output_name), outputs[0], how_many_labels);
+  TopK(root.WithOpName(output_name), outputs[0], how_many_labels);
   // This runs the GraphDef network definition that we've just constructed, and
   // returns the results in the output tensors.
   tensorflow::GraphDef graph;
@@ -232,20 +232,18 @@ int main(int argc, char* argv[]) {
   // These are the command-line flags the program can understand.
   // They define where the graph and input data is located, and what kind of
   // input the model expects. If you train your own model, or use something
-  // other than GoogLeNet you'll need to update these.
+  // other than inception_v3, then you'll need to update these.
   string image = "tensorflow/examples/label_image/data/grace_hopper.jpg";
   string graph =
-      "tensorflow/examples/label_image/data/"
-      "tensorflow_inception_graph.pb";
+      "tensorflow/examples/label_image/data/inception_v3_2016_08_28_frozen.pb";
   string labels =
-      "tensorflow/examples/label_image/data/"
-      "imagenet_comp_graph_label_strings.txt";
+      "tensorflow/examples/label_image/data/imagenet_slim_labels.txt";
   int32 input_width = 299;
   int32 input_height = 299;
-  int32 input_mean = 128;
-  int32 input_std = 128;
-  string input_layer = "Mul";
-  string output_layer = "softmax";
+  int32 input_mean = 0;
+  int32 input_std = 255;
+  string input_layer = "input";
+  string output_layer = "InceptionV3/Predictions/Reshape_1";
   bool self_test = false;
   string root_dir = "";
   std::vector<Flag> flag_list = {
@@ -309,11 +307,11 @@ int main(int argc, char* argv[]) {
   }
 
   // This is for automated testing to make sure we get the expected result with
-  // the default settings. We know that label 866 (military uniform) should be
+  // the default settings. We know that label 653 (military uniform) should be
   // the top label for the Admiral Hopper image.
   if (self_test) {
     bool expected_matches;
-    Status check_status = CheckTopLabel(outputs, 866, &expected_matches);
+    Status check_status = CheckTopLabel(outputs, 653, &expected_matches);
     if (!check_status.ok()) {
       LOG(ERROR) << "Running check failed: " << check_status;
       return -1;

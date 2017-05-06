@@ -29,6 +29,15 @@ TF_OperationDescription* requireHandle(JNIEnv* env, jlong handle) {
   return reinterpret_cast<TF_OperationDescription*>(handle);
 }
 
+TF_Operation* requireOperation(JNIEnv* env, jlong handle) {
+  if (handle == 0) {
+    throwException(env, kIllegalStateException,
+                   "Operation has not been built");
+    return nullptr;
+  }
+  return reinterpret_cast<TF_Operation*>(handle);
+}
+
 bool resolveOutput(JNIEnv* env, jlong op_handle, jint index, TF_Output* out) {
   if (op_handle == 0) {
     throwException(env, kIllegalStateException,
@@ -48,6 +57,7 @@ TF_Tensor* requireTensor(JNIEnv* env, jlong handle) {
   }
   return reinterpret_cast<TF_Tensor*>(handle);
 }
+
 }  // namespace
 
 JNIEXPORT jlong JNICALL Java_org_tensorflow_OperationBuilder_allocate(
@@ -115,6 +125,15 @@ JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_addInputList(
   TF_AddInputList(d, o.get(), n);
 }
 
+JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_addControlInput(
+    JNIEnv* env, jclass clazz, jlong handle, jlong op_handle) {
+  TF_Operation* control = requireOperation(env, op_handle);
+  if (control == nullptr) return;
+  TF_OperationDescription* d = requireHandle(env, handle);
+  if (d == nullptr) return;
+  TF_AddControlInput(d, control);
+}
+
 JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setDevice(
     JNIEnv* env, jclass clazz, jlong handle, jstring device) {
   TF_OperationDescription* d = requireHandle(env, handle);
@@ -152,9 +171,11 @@ JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setAttrString(
 
 #define DEFINE_SET_ATTR_LIST(name, jname, jtype, ctype)            \
   JNIEXPORT void JNICALL                                           \
-      Java_ord_tensorflow_OperationBuilder_setAttr##name##List(    \
+      Java_org_tensorflow_OperationBuilder_setAttr##name##List(    \
           JNIEnv* env, jclass clazz, jlong handle, jstring name,   \
           jtype##Array value) {                                    \
+    TF_OperationDescription* d = requireHandle(env, handle);       \
+    if (d == nullptr) return;                                      \
     const char* cname = env->GetStringUTFChars(name, nullptr);     \
     /* Make a copy of the array to paper over any differences */   \
     /* in byte representations of the jtype and ctype         */   \
@@ -167,6 +188,7 @@ JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setAttrString(
     for (int i = 0; i < n; ++i) {                                  \
       cvalue[i] = static_cast<ctype>(elems[i]);                    \
     }                                                              \
+    TF_SetAttr##name##List(d, cname, cvalue.get(), n);             \
     env->Release##jname##ArrayElements(value, elems, JNI_ABORT);   \
     env->ReleaseStringUTFChars(name, cname);                       \
   }
@@ -217,5 +239,26 @@ JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setAttrTensorList(
   TF_Status* status = TF_NewStatus();
   TF_SetAttrTensorList(d, cname, tensors.get(), n, status);
   throwExceptionIfNotOK(env, status);
+  env->ReleaseStringUTFChars(name, cname);
+}
+
+JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setAttrShape(
+    JNIEnv* env, jclass clazz, jlong handle, jstring name, jlongArray shape,
+    jint num_dims) {
+  TF_OperationDescription* d = requireHandle(env, handle);
+  if (d == nullptr) return;
+  std::unique_ptr<int64_t[]> cvalue;
+  // num_dims and env->GetArrayLength(shape) are assumed to be consistent.
+  // i.e., either num_dims < 0 or num_dims == env->GetArrayLength(shape).
+  if (num_dims > 0) {
+    cvalue.reset(new int64_t[num_dims]);
+    jlong* elems = env->GetLongArrayElements(shape, nullptr);
+    for (int i = 0; i < num_dims; ++i) {
+      cvalue[i] = static_cast<int64_t>(elems[i]);
+    }
+    env->ReleaseLongArrayElements(shape, elems, JNI_ABORT);
+  }
+  const char* cname = env->GetStringUTFChars(name, nullptr);
+  TF_SetAttrShape(d, cname, cvalue.get(), static_cast<int>(num_dims));
   env->ReleaseStringUTFChars(name, cname);
 }

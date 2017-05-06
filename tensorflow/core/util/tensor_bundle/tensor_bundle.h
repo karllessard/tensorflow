@@ -100,11 +100,14 @@ extern const int kTensorBundleVersion;
 extern const char* const kHeaderEntryKey;
 
 // Builds a string-string table of tensor names to BundleEntryProto (metadata).
+//
+// On construction, attempts to create a directory given by the dirname of
+// "prefix", so "status()" must be checked before calling any member functions.
+//
 // All threads accessing the same BundleWriter must synchronize.
 class BundleWriter {
  public:
   BundleWriter(Env* env, StringPiece prefix);
-  ~BundleWriter();
 
   // Adds the tensor "val" under key "key".
   // Across calls "key" must be unique but can be added in any order.
@@ -207,6 +210,12 @@ class BundleReader {
   // REQUIRES: status().ok()
   Status Lookup(StringPiece key, Tensor* val) TF_MUST_USE_RESULT;
 
+  // Looks up the slices of the tensor keyed by "key".  On OK, "slices"
+  // is non-empty if and only if the tensor is a partitioned tensor.
+  // REQUIRES: status().ok()
+  Status LookupTensorSlices(StringPiece key, std::vector<TensorSlice>* slices)
+      TF_MUST_USE_RESULT;
+
   // Looks up a specific slice of a partitioned tensor.
   // It is only required that the stored slices cover the requested slice,
   // namely "slice_spec" is a subset of the union of the stored slices.
@@ -297,8 +306,8 @@ class FileOutputBuffer {
   Status Close();
 
  private:
-  // Appends the buffered data and flushes.
-  Status Flush();
+  // Appends the buffered data to the underlying file. Does NOT flush the file.
+  Status FlushBuffer();
 
   WritableFile* file_;  // Owned.
 

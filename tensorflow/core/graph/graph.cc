@@ -98,6 +98,7 @@ void Node::Initialize(int id, int cost_id, Properties* props) {
   SET_CLASS(NC_VARIABLE, ts, "VariableV2", "");
   SET_CLASS(NC_IDENTITY, ts, "Identity", "RefIdentity");
   SET_CLASS(NC_GET_SESSION_HANDLE, ts, "GetSessionHandle", "");
+  SET_CLASS(NC_GET_SESSION_HANDLE, ts, "GetSessionHandleV2", "");
   SET_CLASS(NC_GET_SESSION_TENSOR, ts, "GetSessionTensor", "");
   SET_CLASS(NC_DELETE_SESSION_TENSOR, ts, "DeleteSessionTensor", "");
   if (class_ == NC_UNINITIALIZED) {
@@ -198,7 +199,7 @@ Status Node::input_edges(std::vector<const Edge*>* input_edges) const {
   return Status::OK();
 }
 
-Status Node::input_node(int idx, const Node** n) const {
+Status Node::input_node(int idx, Node** n) const {
   const Edge* e;
   TF_RETURN_IF_ERROR(input_edge(idx, &e));
   if (e == nullptr) {
@@ -206,6 +207,13 @@ Status Node::input_node(int idx, const Node** n) const {
   } else {
     *n = e->src();
   }
+  return Status::OK();
+}
+
+Status Node::input_node(int idx, const Node** const_n) const {
+  Node* n;
+  TF_RETURN_IF_ERROR(input_node(idx, &n));
+  *const_n = n;
   return Status::OK();
 }
 
@@ -224,7 +232,7 @@ Node::Properties::~Properties() {}
 // Graph
 
 Graph::Graph(const OpRegistryInterface* ops)
-    : ops_(ops), arena_(8 << 10 /* 8kB */) {
+    : ops_(ops, FunctionDefLibrary()), arena_(8 << 10 /* 8kB */) {
   versions_.set_producer(TF_GRAPH_DEF_VERSION);
   versions_.set_min_consumer(TF_GRAPH_DEF_VERSION_MIN_CONSUMER);
 
@@ -245,6 +253,12 @@ Graph::Graph(const OpRegistryInterface* ops)
   AddControlEdge(source, sink);
 }
 
+Graph::Graph(const FunctionLibraryDefinition& flib_def)
+    : Graph(flib_def.default_registry()) {
+  Status s = ops_.AddLibrary(flib_def);
+  CHECK(s.ok()) << s.error_message();
+}
+
 Graph::~Graph() {
   // Manually call the destructors for all the Nodes we constructed using
   // placement new.
@@ -262,7 +276,7 @@ Graph::~Graph() {
 
 Node* Graph::AddNode(const NodeDef& node_def, Status* status) {
   const OpDef* op_def;
-  status->Update(ops_->LookUpOpDef(node_def.op(), &op_def));
+  status->Update(ops_.LookUpOpDef(node_def.op(), &op_def));
   if (!status->ok()) return nullptr;
 
   DataTypeVector inputs;
@@ -330,7 +344,7 @@ const Edge* Graph::AddEdge(Node* source, int x, Node* dest, int y) {
   CHECK(source->out_edges_.insert(e).second);
   CHECK(dest->in_edges_.insert(e).second);
   edges_.push_back(e);
-  edge_set_.insert(e);
+  ++num_edges_;
   return e;
 }
 
@@ -340,8 +354,8 @@ void Graph::RemoveEdge(const Edge* e) {
   CHECK_EQ(e->src_->out_edges_.erase(e), size_t{1});
   CHECK_EQ(e->dst_->in_edges_.erase(e), size_t{1});
   CHECK_EQ(e, edges_[e->id_]);
+  CHECK_GT(num_edges_, 0);
 
-  CHECK_EQ(edge_set_.erase(e), size_t{1});
   edges_[e->id_] = nullptr;
 
   Edge* del = const_cast<Edge*>(e);
@@ -351,6 +365,39 @@ void Graph::RemoveEdge(const Edge* e) {
   del->src_output_ = kControlSlot - 1;
   del->dst_input_ = kControlSlot - 1;
   free_edges_.push_back(del);
+  --num_edges_;
+}
+
+Status Graph::AddFunctionLibrary(const FunctionDefLibrary& fdef_lib) {
+  for (const FunctionDef& fdef : fdef_lib.function()) {
+    const FunctionDef* preexisting_fdef = ops_.Find(fdef.signature().name());
+    if (preexisting_fdef != nullptr) {
+      if (!FunctionDefsEqual(*preexisting_fdef, fdef)) {
+        return errors::InvalidArgument(
+            "Cannot add function '", fdef.signature().name(),
+            "' because a different function with the same name already "
+            "exists.");
+      }
+      // Ignore duplicate FunctionDefs
+      continue;
+    }
+    TF_RETURN_IF_ERROR(ops_.AddFunctionDef(fdef));
+  }
+  for (const GradientDef& grad : fdef_lib.gradient()) {
+    string preexisting_grad_func = ops_.FindGradient(grad.function_name());
+    if (!preexisting_grad_func.empty()) {
+      if (preexisting_grad_func != grad.gradient_func()) {
+        return errors::InvalidArgument(
+            "Cannot assign gradient function '", grad.gradient_func(), "' to '",
+            grad.function_name(), "' because it already has gradient function ",
+            "'", preexisting_grad_func, "'");
+      }
+      // Ignore duplicate GradientDefs
+      continue;
+    }
+    TF_RETURN_IF_ERROR(ops_.AddGradientDef(grad));
+  }
+  return Status::OK();
 }
 
 namespace {
@@ -373,7 +420,8 @@ void Graph::ToGraphDef(GraphDef* graph_def) const {
 
 void Graph::ToGraphDefSubRange(GraphDef* graph_def, int from_node_id) const {
   graph_def->Clear();
-  graph_def->mutable_versions()->CopyFrom(versions());
+  *graph_def->mutable_versions() = versions();
+  *graph_def->mutable_library() = ops_.ToProto();
   std::vector<const Edge*>
       inputs;  // Construct this outside the loop for speed.
   for (auto id = from_node_id; id < num_node_ids(); ++id) {

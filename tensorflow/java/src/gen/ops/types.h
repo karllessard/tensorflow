@@ -46,6 +46,9 @@ public:
 
   const Type TypeOf(const OpDef_ArgDef& arg);
   const Type TypeOf(const OpDef_AttrDef& attr);
+  inline bool ArgIsList(const OpDef_ArgDef& arg) const {
+    return !arg.type_list_attr().empty() || !arg.number_attr().empty();
+  }
 
 private:
   std::map<const std::string, Type> attr_types_;

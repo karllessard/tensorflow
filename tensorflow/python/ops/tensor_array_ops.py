@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""TensorArray operations.
-
-## Classes containing dynamically sized arrays of Tensors.
+"""TensorArray: a dynamically sized array of Tensors.
 
 @@TensorArray
 """
@@ -30,6 +28,7 @@ from tensorflow.python.framework import tensor_util
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import gen_data_flow_ops
 from tensorflow.python.ops import math_ops
+from tensorflow.python.util import tf_should_use
 
 
 def _maybe_set_device(handle_op, value_t):
@@ -59,24 +58,6 @@ class TensorArray(object):
   This class is meant to be used with dynamic iteration primitives such as
   `while_loop` and `map_fn`.  It supports gradient back-propagation via special
   "flow" control flow dependencies.
-
-  @@handle
-  @@flow
-  @@dtype
-
-  @@read
-  @@gather
-  @@stack
-  @@concat
-
-  @@write
-  @@scatter
-  @@unstack
-  @@split
-
-  @@identity
-
-  @@grad
   """
 
   def __init__(self,
@@ -272,6 +253,7 @@ class TensorArray(object):
         value.set_shape(self._element_shape[0].dims)
       return value
 
+  @tf_should_use.should_use_result
   def write(self, index, value, name=None):
     """Write `value` into index `index` of the TensorArray.
 
@@ -378,11 +360,13 @@ class TensorArray(object):
         value.set_shape([None] + self._element_shape[0].dims[1:])
       return value
 
+  @tf_should_use.should_use_result
   def unstack(self, value, name=None):
     """Unstack the values of a `Tensor` in the TensorArray.
 
     If input value shapes have rank-`R`, then the output TensorArray will
     contain elements whose shapes are rank-`(R-1)`.
+
     Args:
       value: (N+1)-D.  Tensor of type `dtype`.  The Tensor to unstack.
       name: A name for the operation (optional).
@@ -399,6 +383,7 @@ class TensorArray(object):
       return self.scatter(
           indices=math_ops.range(0, num_elements), value=value, name=name)
 
+  @tf_should_use.should_use_result
   def scatter(self, indices, value, name=None):
     """Scatter the values of a `Tensor` in specific indices of a `TensorArray`.
 
@@ -437,6 +422,7 @@ class TensorArray(object):
         ta._merge_element_shape(element_shape)
       return ta
 
+  @tf_should_use.should_use_result
   def split(self, value, lengths, name=None):
     """Split the values of a `Tensor` into the TensorArray.
 
@@ -485,6 +471,7 @@ class TensorArray(object):
       return gen_data_flow_ops._tensor_array_size_v3(
           handle=self._handle, flow_in=self.flow, name=name)
 
+  @tf_should_use.should_use_result
   def close(self, name=None):
     """Close the current TensorArray."""
     with ops.colocate_with(self._handle):

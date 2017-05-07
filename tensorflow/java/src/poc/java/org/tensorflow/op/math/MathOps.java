@@ -11,7 +11,7 @@ public class MathOps {
   }
   
   public Cast.Builder cast(InputSource x, DataType y) {
-    return new Cast.Builder(scope, x, y);
+    return new Cast.Builder(scope, x.input(), y);
   }
 
   private final Scope scope;

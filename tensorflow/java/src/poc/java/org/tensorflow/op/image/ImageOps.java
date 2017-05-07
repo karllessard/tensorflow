@@ -10,7 +10,7 @@ public class ImageOps {
   }
   
   public DecodeJpeg.Builder decodeJpeg(InputSource contents) {
-    return new DecodeJpeg.Builder(scope, contents);
+    return new DecodeJpeg.Builder(scope, contents.input());
   }
 
   private final Scope scope;

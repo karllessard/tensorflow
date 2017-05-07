@@ -4,6 +4,7 @@ import org.tensorflow.DataType;
 import org.tensorflow.InputSource;
 import org.tensorflow.Operation;
 import org.tensorflow.OperationBuilder;
+import org.tensorflow.Output;
 import org.tensorflow.op.Scope;
 import org.tensorflow.op.SingleResultNode;
 
@@ -11,7 +12,7 @@ public class Cast extends SingleResultNode {
 
   public static class Builder extends SingleResultNode.Builder<Cast> {
 
-    Builder(Scope scope, InputSource x, DataType y) {
+    Builder(Scope scope, Output x, DataType y) {
       super(scope, OP_TYPE);
       this.x = x;
       this.y = y;
@@ -25,7 +26,7 @@ public class Cast extends SingleResultNode {
             .build());
     }
 
-    private final InputSource x;
+    private final Output x;
     private final DataType y;
   }
 

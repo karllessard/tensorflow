@@ -1,8 +1,8 @@
 package org.tensorflow.op.image;
 
-import org.tensorflow.InputSource;
 import org.tensorflow.Operation;
 import org.tensorflow.OperationBuilder;
+import org.tensorflow.Output;
 import org.tensorflow.op.Scope;
 import org.tensorflow.op.SingleResultNode;
 
@@ -10,7 +10,7 @@ public class DecodeJpeg extends SingleResultNode {
 
   public static class Builder extends SingleResultNode.Builder<DecodeJpeg> {
 
-    Builder(Scope scope, InputSource contents) {
+    Builder(Scope scope, Output contents) {
       super(scope, OP_TYPE);
       this.contents = contents;
     }
@@ -58,7 +58,7 @@ public class DecodeJpeg extends SingleResultNode {
             .build());
     }
 
-    private final InputSource contents;
+    private final Output contents;
     private int channels = 0;
     private int ratio = 1;
     private boolean fancyUpscaling = true;

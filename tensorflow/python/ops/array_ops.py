@@ -13,10 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-"""## Casting
+"""Support for manipulating tensors.
 
-TensorFlow provides several operations that you can use to cast tensor data
-types in your graph.
+See the @{$python/array_ops} guide.
 
 @@string_to_number
 @@to_double
@@ -27,12 +26,6 @@ types in your graph.
 @@cast
 @@bitcast
 @@saturate_cast
-
-## Shapes and Shaping
-
-TensorFlow provides several operations that you can use to determine the shape
-of a tensor and change the shape of a tensor.
-
 @@broadcast_dynamic_shape
 @@broadcast_static_shape
 @@shape
@@ -43,12 +36,6 @@ of a tensor and change the shape of a tensor.
 @@squeeze
 @@expand_dims
 @@meshgrid
-
-## Slicing and Joining
-
-TensorFlow provides several operations to slice or extract parts of a tensor,
-or join multiple tensors together.
-
 @@slice
 @@strided_slice
 @@split
@@ -83,10 +70,6 @@ or join multiple tensors together.
 @@quantize_v2
 @@quantized_concat
 @@setdiff1d
-
-## Fake quantization
-Operations used to help train for better quantization accuracy.
-
 @@fake_quant_with_min_max_args
 @@fake_quant_with_min_max_args_gradient
 @@fake_quant_with_min_max_vars
@@ -94,6 +77,7 @@ Operations used to help train for better quantization accuracy.
 @@fake_quant_with_min_max_vars_per_channel
 @@fake_quant_with_min_max_vars_per_channel_gradient
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -212,7 +196,7 @@ def broadcast_dynamic_shape(shape_x, shape_y):
 
   Args:
     shape_x: A rank 1 integer `Tensor`, representing the shape of x.
-    shape_y: A rank 1 integer `Tensor`, representing the shape of x.
+    shape_y: A rank 1 integer `Tensor`, representing the shape of y.
   Returns:
     A rank 1 integer `Tensor` representing the broadcasted shape.
   """
@@ -486,7 +470,10 @@ def _SliceHelper(tensor, slice_spec, var=None):
     else:
       begin.append(s)
       end.append(s + 1)
-      strides.append(1)
+      if isinstance(s, ops.Tensor):
+        strides.append(constant(1, s.dtype))
+      else:
+        strides.append(np.ones_like(s).dtype.type(1))
       shrink_axis_mask |= (1 << index)
     index += 1
 
@@ -573,7 +560,13 @@ def strided_slice(input_,
                   shrink_axis_mask=0,
                   var=None,
                   name=None):
-  """Extracts a strided slice from a tensor.
+  """Extracts a strided slice of a tensor (generalized python array indexing).
+
+  **Most users will want to use @{tf.Tensor.__getitem__} and
+  @{tf.Variable.__getitem__}.** That allows  NumPy style slicing syntax (i.e.
+  `tensor[..., 3:4:-1, tf.newaxis, 3]`).
+  This op is the low-level interface that are used to implement operators.
+  Those interfaces are much more friendly, and highly recommended.
 
   To a first order, this operation extracts a slice of size `end - begin`
   from a tensor `input`
@@ -602,7 +595,7 @@ def strided_slice(input_,
   `foo[::-1]` reverses a tensor with shape 8.
 
 
-  If the ith bit of `ellipsis_mask`, as many unspecified dimensions
+  If the ith bit of `ellipsis_mask` is non-zero, as many unspecified dimensions
   as needed will be inserted between other dimensions. Only one
   non-zero bit is allowed in `ellipsis_mask`.
 
@@ -610,7 +603,7 @@ def strided_slice(input_,
   equivalent to `foo[3:5,:,:,4:5]` and
   `foo[3:5,...]` is equivalent to `foo[3:5,:,:,:]`.
 
-  If the ith bit of `new_axis_mask` is one, then a `begin`,
+  If the ith bit of `new_axis_mask` is one, then `begin`,
   `end`, and `stride` are ignored and a new length 1 dimension is
   added at this point in the output tensor.
 
@@ -634,8 +627,8 @@ def strided_slice(input_,
   tf.strided_slice(input, [1, 0, 0], [2, 1, 3], [1, 1, 1]) ==> [[[3, 3, 3]]]
   tf.strided_slice(input, [1, 0, 0], [2, 2, 3], [1, 1, 1]) ==> [[[3, 3, 3],
                                                                  [4, 4, 4]]]
-  tf.strided_slice(input, [1, 1, 0], [2, -1, 3], [1, -1, 1]) ==>[[[4, 4, 4],
-                                                                  [3, 3, 3]]]
+  tf.strided_slice(input, [1, -1, 0], [2, -3, 3], [1, -1, 1]) ==>[[[4, 4, 4],
+                                                                   [3, 3, 3]]]
   ```
 
   Args:
@@ -670,11 +663,16 @@ def strided_slice(input_,
       new_axis_mask=new_axis_mask,
       shrink_axis_mask=shrink_axis_mask)
 
-  def assign(val):
+  parent_name = name
+
+  def assign(val, name=None):
     """Closure that holds all the arguments to create an assignment."""
 
     if var is None:
       raise ValueError("Sliced assignment is only supported for variables")
+
+    if name is None:
+      name = parent_name + "_assign"
 
     return gen_array_ops.strided_slice_assign(
         ref=var,
@@ -682,7 +680,7 @@ def strided_slice(input_,
         end=end,
         strides=strides,
         value=val,
-        name=name + "_assign",
+        name=name,
         begin_mask=begin_mask,
         end_mask=end_mask,
         ellipsis_mask=ellipsis_mask,
@@ -697,9 +695,7 @@ def _SliceHelperVar(var, slice_spec):
   """Creates a slice helper object given a variable.
 
   This allows creating a sub-tensor from part of the current contents
-  of a variable.
-  See
-  [`Tensor.__getitem__`](../../api_docs/python/framework.md#Tensor.__getitem__)
+  of a variable.  See ${tf.Tensor$`Tensor.__getitem__`}
   for detailed examples of slicing.
 
   This function in addition also allows assignment to a sliced range.
@@ -811,7 +807,9 @@ def stack(values, axis=0, name="stack"):
 
   This is the opposite of unstack.  The numpy equivalent is
 
-      tf.stack([x, y, z]) = np.asarray([x, y, z])
+  ```python
+  tf.stack([x, y, z]) = np.asarray([x, y, z])
+  ```
 
   Args:
     values: A list of `Tensor` objects with the same shape and type.
@@ -977,12 +975,6 @@ def unstack(value, num=None, axis=0, name="unstack"):
   if num is None:
     raise ValueError("Cannot infer num from shape %s" % value_shape)
   return gen_array_ops._unpack(value, num=num, axis=axis, name=name)
-
-
-# concat_v2 is an alias for concat. concat_v2 will be deprecated and removed
-# soon, please use concat.
-def concat_v2(values, axis, name="concat_v2"):
-  return concat(values, axis, name)
 
 
 def concat(values, axis, name="concat"):
@@ -1314,6 +1306,17 @@ def matrix_transpose(a, name="matrix_transpose"):
   # tf.matrix_transpose(x) is shape [1, 2, 4, 3]
   ```
 
+  Note that `tf.matmul` provides kwargs allowing for transpose of arguments.
+  This is done with minimal cost, and is preferable to using this function. E.g.
+
+  ```
+  # Good!  Transpose is taken at minimal additional cost.
+  tf.matmul(matrix, b, transpose_b=True)
+
+  # Inefficient!
+  tf.matmul(matrix, tf.matrix_transpose(b))
+  ```
+
   Args:
     a: A `Tensor` with `rank >= 2`.
     name: A name for the operation (optional).
@@ -1370,7 +1373,12 @@ def zeros(shape, dtype=dtypes.float32, name=None):
   """
   dtype = dtypes.as_dtype(dtype).base_dtype
   with ops.name_scope(name, "zeros", [shape]) as name:
-    zero = False if dtype == dtypes.bool else 0
+    if dtype == dtypes.bool:
+      zero = False
+    elif dtype == dtypes.string:
+      zero = ""
+    else:
+      zero = 0
     try:
       shape = tensor_shape.as_shape(shape)
       output = constant(zero, shape=shape, dtype=dtype, name=name)
@@ -1408,10 +1416,15 @@ def zeros_like(tensor, dtype=None, name=None, optimize=True):
   """
   with ops.name_scope(name, "zeros_like", [tensor]) as name:
     tensor = ops.convert_to_tensor(tensor, name="tensor")
-    if dtype is not None and tensor.dtype != dtype:
-      ret = zeros(shape_internal(tensor, optimize=optimize), dtype, name=name)
-      ret.set_shape(tensor.get_shape())
-      return ret
+
+    if tensor.shape.is_fully_defined():
+      # We can produce a zeros tensor independent of the value of 'tensor',
+      # since the shape is known statically.
+      return zeros(tensor.shape, dtype=dtype or tensor.dtype, name=name)
+
+    if dtype is not None and dtype != tensor.dtype:
+      return zeros(shape_internal(tensor, optimize=optimize), dtype=dtype,
+                   name=name)
     else:
       return gen_array_ops._zeros_like(tensor, name=name)
 
@@ -1515,17 +1528,7 @@ def placeholder(dtype, shape=None, name=None):
     A `Tensor` that may be used as a handle for feeding a value, but not
     evaluated directly.
   """
-  shape = tensor_shape.as_shape(shape)
-  if shape.is_fully_defined():
-    dim_list = shape.as_list()
-  else:
-    dim_list = []
-  ret = gen_array_ops._placeholder(
-      dtype=dtype,
-      shape=dim_list,
-      name=name)
-  ret.set_shape(shape)
-  return ret
+  return gen_array_ops._placeholder(dtype=dtype, shape=shape, name=name)
 
 
 # pylint: disable=redefined-outer-name
@@ -1564,7 +1567,7 @@ def sparse_placeholder(dtype, shape=None, name=None):
       x: (indices, values, shape)}))  # Will succeed.
 
     sp = tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
-    sp_value = sp.eval(session)
+    sp_value = sp.eval(session=sess)
     print(sess.run(y, feed_dict={x: sp_value}))  # Will succeed.
   ```
 
@@ -1882,7 +1885,8 @@ def edit_distance(hypothesis, truth, normalize=True, name="edit_distance"):
 @ops.RegisterGradient("FakeQuantWithMinMaxArgs")
 def _FakeQuantWithMinMaxArgsGradient(op, grad):
   """Gradient for FakeQuantWithMinMaxArgs op."""
-  return fake_quant_with_min_max_args_gradient(grad, op.inputs[0])
+  return fake_quant_with_min_max_args_gradient(
+      grad, op.inputs[0], min=op.get_attr("min"), max=op.get_attr("max"))
 
 
 @ops.RegisterGradient("FakeQuantWithMinMaxVars")
@@ -2291,7 +2295,7 @@ def where(condition, x=None, y=None, name=None):
 
   If both non-None, `x` and `y` must have the same shape.
   The `condition` tensor must be a scalar if `x` and `y` are scalar.
-  If `x` and `y` are vectors or higher rank, then `condition` must be either a
+  If `x` and `y` are vectors of higher rank, then `condition` must be either a
   vector with size matching the first dimension of `x`, or must have the same
   shape as `x`.
 

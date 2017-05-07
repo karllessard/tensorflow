@@ -26,13 +26,13 @@ limitations under the License.
 #include "tensorflow/compiler/xla/legacy_flags/cpu_compiler_flags.h"
 #include "tensorflow/compiler/xla/shape_util.h"
 #include "tensorflow/compiler/xla/statusor.h"
+#include "tensorflow/compiler/xla/test.h"
 #include "tensorflow/compiler/xla/test_helpers.h"
 #include "tensorflow/compiler/xla/tests/client_library_test_base.h"
 #include "tensorflow/compiler/xla/tests/literal_test_util.h"
 #include "tensorflow/compiler/xla/tests/test_macros.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
 #include "tensorflow/core/lib/gtl/array_slice.h"
-#include "tensorflow/core/platform/test.h"
 #include "tensorflow/core/platform/types.h"
 
 namespace xla {
@@ -50,14 +50,15 @@ class InProcessServiceTest : public ClientLibraryTestBase {
     builder.ConstantR2<float>(values);
     auto computation = builder.Build().ConsumeValueOrDie();
     CHECK_EQ(2, minor_to_major.size());
-    Shape shape_with_layout = ShapeUtil::MakeShapeWithLayout(
-        F32,
-        /*dimensions=*/{static_cast<int64>(values.size()),
-                        static_cast<int64>(values.begin()->size())},
-        minor_to_major);
-    return client_
-        ->Execute(computation, {}, &shape_with_layout,
-                  /*execution_profile=*/nullptr)
+
+    ExecutionOptions execution_options;
+    *execution_options.mutable_shape_with_output_layout() =
+        ShapeUtil::MakeShapeWithLayout(
+            F32,
+            /*dimensions=*/{static_cast<int64>(values.size()),
+                            static_cast<int64>(values.begin()->size())},
+            minor_to_major);
+    return client_->Execute(computation, {}, &execution_options)
         .ConsumeValueOrDie();
   }
 
@@ -73,7 +74,7 @@ XLA_TEST_F(InProcessServiceTest, TransferFromServer) {
 
   std::vector<int32> result(3, 0);
   ASSERT_IS_OK(client_->TransferInProcess(*handle, result.data()));
-  EXPECT_MATCH(result, testing::VectorMatcher<int32>({1, 42, 5}));
+  EXPECT_THAT(result, ::testing::ElementsAre(1, 42, 5));
 }
 
 XLA_TEST_F(InProcessServiceTest, TransferToServer) {
@@ -147,7 +148,7 @@ XLA_TEST_F(InProcessServiceTest, ExecuteRowMajor) {
   Shape shape;
   ASSERT_IS_OK(client_->TransferInProcess(*handle, result.data()));
 
-  EXPECT_MATCH(result, testing::VectorMatcher<float>({1.0, 2.0, 3.0, 4.0}));
+  EXPECT_THAT(result, ::testing::ElementsAre(1.0, 2.0, 3.0, 4.0));
 }
 
 XLA_TEST_F(InProcessServiceTest, ExecuteColumnMajor) {
@@ -158,7 +159,7 @@ XLA_TEST_F(InProcessServiceTest, ExecuteColumnMajor) {
   Shape shape;
   ASSERT_IS_OK(client_->TransferInProcess(*handle, result.data()));
 
-  EXPECT_MATCH(result, testing::VectorMatcher<float>({1.0, 3.0, 2.0, 4.0}));
+  EXPECT_THAT(result, ::testing::ElementsAre(1.0, 3.0, 2.0, 4.0));
 }
 
 XLA_TEST_F(InProcessServiceTest, ExecuteAndReuseDifferentLayouts) {

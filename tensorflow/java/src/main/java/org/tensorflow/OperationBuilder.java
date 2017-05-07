@@ -63,10 +63,9 @@ public final class OperationBuilder {
     }
   }
 
-  public OperationBuilder addInput(InputSource inputSrc) {
+  public OperationBuilder addInput(Output input) {
     Graph.Reference r = graph.ref();
     try {
-      Output input = inputSrc.input();
       addInput(unsafeNativeHandle, input.op().getUnsafeNativeHandle(), input.index());
     } finally {
       r.close();
@@ -74,15 +73,24 @@ public final class OperationBuilder {
     return this;
   }
 
-  public OperationBuilder addInputList(InputSource[] inputSrcs) {
+  public OperationBuilder addControlInput(Operation control) {
     Graph.Reference r = graph.ref();
     try {
-      long[] opHandles = new long[inputSrcs.length];
-      int[] indices = new int[inputSrcs.length];
-      for (int i = 0; i < inputSrcs.length; ++i) {
-        Output input = inputSrcs[i].input();
-        opHandles[i] = input.op().getUnsafeNativeHandle();
-        indices[i] = input.index();
+      addControlInput(unsafeNativeHandle, control.getUnsafeNativeHandle());
+    } finally {
+      r.close();
+    }
+    return this;
+  }
+
+  public OperationBuilder addInputList(Output[] inputs) {
+    Graph.Reference r = graph.ref();
+    try {
+      long[] opHandles = new long[inputs.length];
+      int[] indices = new int[inputs.length];
+      for (int i = 0; i < inputs.length; ++i) {
+        opHandles[i] = inputs[i].op().getUnsafeNativeHandle();
+        indices[i] = inputs[i].index();
       }
       addInputList(unsafeNativeHandle, opHandles, indices);
     } finally {
@@ -225,6 +233,16 @@ public final class OperationBuilder {
     return this;
   }
 
+  public OperationBuilder setAttr(String name, Shape value) {
+    Graph.Reference r = graph.ref();
+    try {
+      setAttrShape(unsafeNativeHandle, name, value.asArray(), value.numDimensions());
+    } finally {
+      r.close();
+    }
+    return this;
+  }
+
   private long unsafeNativeHandle;
   private Graph graph;
 
@@ -236,6 +254,8 @@ public final class OperationBuilder {
 
   private static native void addInputList(long handle, long[] opHandles, int[] indices);
 
+  private static native void addControlInput(long handle, long opHandle);
+
   private static native void setDevice(long handle, String device);
 
   // The names of all the setAttr* family functions below correspond to the C library types, not the
@@ -244,7 +264,7 @@ public final class OperationBuilder {
   // TODO(ashankar):
   // - setAttrStringList: Which would take in an array of byte[] (java Strings will need to be UTF-8
   //   encoded?)
-  // - setAttrShape and setAttrShapeList: Which would take in a long[] or long[][]?
+  // - setAttrShapeList: Which would take in a long[][]
 
   private static native void setAttrString(long handle, String name, byte[] value);
 
@@ -267,4 +287,6 @@ public final class OperationBuilder {
   private static native void setAttrTensor(long handle, String name, long tensorHandle);
 
   private static native void setAttrTensorList(long handle, String name, long[] tensorHandle);
+
+  private static native void setAttrShape(long handle, String name, long[] shape, int numDims);
 }

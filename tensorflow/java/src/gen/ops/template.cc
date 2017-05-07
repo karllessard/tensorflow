@@ -8,7 +8,7 @@
 #include "tensorflow/core/platform/env.h"
 #include "template.h"
 
-#define TEMPLATE_PATH "/home/karl/dev/projects/tf/tensorflow/tensorflow/java/src/gen/ops/templates/" // FIXME
+#define TEMPLATE_PATH "/home/kbsriram/extsrc/tensorflow/tensorflow/java/src/gen/ops/templates/" // FIXME
 #define TEMPLATE_EXT ".tmpl"
 
 using namespace std;

@@ -34,10 +34,14 @@ void OpGenerator::Run(Env* env, bool include_internal) {
 }
 
 void OpGenerator::LoadTemplates(Env* env) {
-  template_lib.Load(env, "lib");
-  template_lib_ops.Load(env, "lib_ops");
+  // template_lib.Load(env, "lib");
+  // template_lib_ops.Load(env, "lib_ops");
   template_op.Load(env, "op");
   template_op_attrs.Load(env, "op_attrs");
+  template_op_outputs.Load(env, "op_outputs");
+  template_op_output_list_setter.Load(env, "op_output_list_setter");
+  template_op_output_setter.Load(env, "op_output_setter");
+  template_op_implement_method.Load(env, "op_implement_method");
 }
 
 void OpGenerator::WriteOps(const OpList& ops) {
@@ -51,23 +55,26 @@ void OpGenerator::WriteOps(const OpList& ops) {
   params["imports"] = "";
 
   for (const auto& op : ops.op()) {
-    if (op.name() == "Const" || op.name() == "NoOp") {
-      continue; // special case: this operation is handled programmatically
-    }
+    //if (op.name() == "Const" || op.name() == "NoOp") {
+    //  continue; // special case: this operation is handled programmatically
+    //}
     WriteOp(op, params);
-    lib_ops += template_lib_ops.Render(params);
+    // lib_ops += template_lib_ops.Render(params);
   }
-  params["lib_ops"] = lib_ops;
+  // params["lib_ops"] = lib_ops;
 
-  template_lib.RenderToFile(ToFileName(lib_name_pc), params);
+  // template_lib.RenderToFile(ToFileName(lib_name_pc), params);
 }
 
 void OpGenerator::WriteOp(const OpDef& op, map<string, string>& params) {
-  LOG(INFO) << "----- Writing operation " << op.name() << " -----" << endl;
-  params["op_name_pc"] = op.name();
+  LOG(INFO) << "----- Writing " << pkg_name << "/" << op.name() << endl;
+  string op_name_pc = ProtectReservedClasses(op.name(), "Op");
+  params["op_name_pc"] = op_name_pc;
   params["op_name_cc"] = ProtectReservedKeywords(FromPascalToCamelCase(op.name()), "Op");
+  params["op_name_desc"] = ReplaceAll(
+      op.summary() + "\n\n" + op.description(), "\n", "\n// ");
 
-  string op_inputs, op_inputs_names, op_params, op_attrs, op_mandatory_attrs;
+  string op_inputs, op_inputs_builder, op_params, op_attrs, op_mandatory_attrs, op_outputs, op_output_setter;
   TypeEvaluator type_evaluator(op);
 
   // Write operation inputs
@@ -77,11 +84,59 @@ void OpGenerator::WriteOp(const OpDef& op, map<string, string>& params) {
     if (ImportType(type, params)) {
       string arg_name_cc = FromUnderscoreToCamelCase(arg.name());
       op_inputs += ", " + type.JavaType() + ' ' + arg_name_cc;
-      op_inputs_names += ", " + arg_name_cc;
+      op_inputs_builder += "\n        ";
+      if (type_evaluator.ArgIsList(arg)) {
+        op_inputs_builder +=
+            ".addInputList(" + arg_name_cc + ".inputList())";
+      } else {
+        op_inputs_builder +=
+            ".addInput(" + arg_name_cc + ".input())";
+      }
     }
   }
 
-  // TODO Write operation outputs
+  // Write operation outputs
+  string output_name_cc;
+  string output_type;
+  for (const OpDef_ArgDef& arg : op.output_arg()) {
+    const Type type = type_evaluator.TypeOf(arg);
+
+    if (ImportType(type, params)) {
+      output_name_cc = FromUnderscoreToCamelCase(arg.name());
+      output_type = type.JavaType();
+
+      params["output_name_cc"] = output_name_cc;
+      params["output_type"] = output_type;
+      if (type_evaluator.ArgIsList(arg)) {
+        params["output_is_array"] = "[]";
+        op_output_setter += template_op_output_list_setter.Render(params);
+      } else {
+        params["output_is_array"] = "";
+        op_output_setter += template_op_output_setter.Render(params);
+      }
+      op_outputs += template_op_outputs.Render(params);
+    }
+  }
+
+  params["op_implement_method"] = "";
+  params["op_implements"] = "";
+  if (op.output_arg().size() == 1) {
+    // have the class implement the output class, and implement
+    // the appropriate method if necessary.
+    params["op_implements"] = "implements " + output_type;
+    if (output_type == "InputSource" || output_type == "VariableInputSource") {
+      if (output_name_cc != "input") {
+        params["op_method_name"] = "input";
+        params["op_implement_method"] = template_op_implement_method.Render(params);
+      }
+    } else if (output_type == "InputListSource"
+               || output_type == "VariableListInputSource") {
+      if (output_name_cc != "inputList") {
+        params["op_method_name"] = "inputList";
+        params["op_implement_method"] = template_op_implement_method.Render(params);
+      }
+    }
+  }
 
   // Write operation attributes
   for (const OpDef_AttrDef& attr : op.attr()) {
@@ -96,20 +151,24 @@ void OpGenerator::WriteOp(const OpDef& op, map<string, string>& params) {
       params["attr_type"] = type.JavaType();
       op_attrs += template_op_attrs.Render(params);
 
+
       if (!attr.has_default_value()) {
         op_params += ", " + type.JavaType() + ' ' + attr_name_cc;
         op_mandatory_attrs += ".with" + attr_name_pc + "(" + attr_name_cc + ")";
       }
     }
+
   }
 
   params["op_inputs"] = op_inputs;
-  params["op_inputs_names"] = op_inputs_names;
+  params["op_inputs_builder"] = op_inputs_builder;
   params["op_params"] = op_params;
   params["op_attrs"] = op_attrs;
   params["op_mandatory_attrs"] = op_mandatory_attrs;
+  params["op_outputs"] = op_outputs;
+  params["op_output_setter"] = op_output_setter;
 
-  template_op.RenderToFile(ToFileName(op.name()),  params);
+  template_op.RenderToFile(ToFileName(op_name_pc),  params);
 }
 
 bool OpGenerator::ImportType(const Type& type, std::map<std::string, std::string>& params) {
@@ -123,6 +182,24 @@ bool OpGenerator::ImportType(const Type& type, std::map<std::string, std::string
     return true;
   }
   return false;
+}
+
+string OpGenerator::ReplaceAll(const string& in, const string& find, const string& replace) {
+  string newString;
+  newString.reserve(in.length());  // avoids a few memory allocations
+
+  string::size_type lastPos = 0;
+  string::size_type findPos;
+
+  while(string::npos != (findPos = in.find(find, lastPos))) {
+    newString.append(in, lastPos, findPos - lastPos);
+    newString += replace;
+    lastPos = findPos + find.length();
+  }
+
+  // Care for the rest after last occurrence
+  newString += in.substr(lastPos);
+  return newString;
 }
 
 } // namespace tensorflow

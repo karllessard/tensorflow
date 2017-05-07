@@ -219,6 +219,16 @@ Node* RandomGamma(Graph* g, Node* shape, Node* alpha) {
   return ret;
 }
 
+Node* RandomPoisson(Graph* g, Node* shape, Node* lam) {
+  Node* ret;
+  TF_CHECK_OK(NodeBuilder(g->NewName("n"), "RandomPoisson")
+                  .Input(shape)
+                  .Input(lam)
+                  .Attr("seed", 0)
+                  .Finalize(g, &ret));
+  return ret;
+}
+
 Node* Unary(Graph* g, const string& func, Node* input, int index) {
   Node* ret;
   TF_CHECK_OK(NodeBuilder(g->NewName("n"), func, g->op_registry())
@@ -402,24 +412,6 @@ Node* Cast(Graph* g, Node* in, DataType dst) {
   TF_CHECK_OK(NodeBuilder(g->NewName("n"), "Cast")
                   .Input(in)
                   .Attr("DstT", dst)
-                  .Finalize(g, &ret));
-  return ret;
-}
-
-Node* BroadcastArgs(Graph* g, Node* s0, Node* s1) {
-  Node* ret;
-  TF_CHECK_OK(NodeBuilder(g->NewName("n"), "BroadcastArgs")
-                  .Input(s0)
-                  .Input(s1)
-                  .Finalize(g, &ret));
-  return ret;
-}
-
-Node* BroadcastGradientArgs(Graph* g, Node* s0, Node* s1) {
-  Node* ret;
-  TF_CHECK_OK(NodeBuilder(g->NewName("n"), "BroadcastGradientArgs")
-                  .Input(s0)
-                  .Input(s1)
                   .Finalize(g, &ret));
   return ret;
 }

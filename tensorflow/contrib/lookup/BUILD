@@ -7,23 +7,16 @@ exports_files(["LICENSE"])
 
 package(default_visibility = ["//tensorflow:internal"])
 
+load("//tensorflow:tensorflow.bzl", "py_test")
+
 py_library(
     name = "lookup_py",
     srcs = [
         "__init__.py",
-        "lookup_ops.py",
     ],
     srcs_version = "PY2AND3",
     deps = [
-        "//tensorflow/python:array_ops",
-        "//tensorflow/python:control_flow_ops",
-        "//tensorflow/python:data_flow_ops_gen",
-        "//tensorflow/python:framework",
-        "//tensorflow/python:framework_for_generated_wrappers",
-        "//tensorflow/python:math_ops",
-        "//tensorflow/python:string_ops",
-        "//tensorflow/python:training",
-        "//tensorflow/python:util",
+        "//tensorflow/python/feature_column:lookup_ops",
     ],
 )
 
@@ -37,11 +30,11 @@ py_test(
         "//tensorflow/python:array_ops",
         "//tensorflow/python:client",
         "//tensorflow/python:client_testlib",
-        "//tensorflow/python:data_flow_ops",
         "//tensorflow/python:errors",
         "//tensorflow/python:framework",
         "//tensorflow/python:framework_for_generated_wrappers",
         "//tensorflow/python:framework_test_lib",
+        "//tensorflow/python:lookup_ops",
         "//tensorflow/python:platform_test",
         "//tensorflow/python:training",
         "//tensorflow/python:variables",

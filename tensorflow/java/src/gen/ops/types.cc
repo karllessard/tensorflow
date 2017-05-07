@@ -40,7 +40,15 @@ TypeEvaluator::~TypeEvaluator() {
 
 const Type TypeEvaluator::TypeOf(const OpDef_ArgDef& arg) {
   // TODO! Add support for InputSource arrays when arg.number_attr() is present!
-  return Type("InputSource", "org.tensorflow.InputSource");
+  if (arg.is_ref()) {
+    return ArgIsList(arg)
+        ? Type("VariableInputListSource", "org.tensorflow.VariableInputListSource")
+        : Type("VariableInputSource", "org.tensorflow.VariableInputSource");
+  } else {
+    return ArgIsList(arg)
+        ? Type("InputListSource", "org.tensorflow.InputListSource")
+        : Type("InputSource", "org.tensorflow.InputSource");
+  }
 }
 
 const Type TypeEvaluator::TypeOf(const OpDef_AttrDef& attr) {
@@ -50,6 +58,8 @@ const Type TypeEvaluator::TypeOf(const OpDef_AttrDef& attr) {
 const map<string, const Type> kAttrTypeMap = {
     {"type", Type("DataType", "org.tensorflow.DataType")},
     {"string", Type("String")},
+    {"shape", Type("Shape", "org.tensorflow.Shape")},
+    {"tensor", Type("Tensor", "org.tensorflow.Tensor")},
     {"int", Type("long")},
     {"float", Type("float")},
     {"bool", Type("boolean")},

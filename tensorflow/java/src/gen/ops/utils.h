@@ -15,7 +15,11 @@ namespace tensorflow {
 namespace {
 
 static std::string __reserved_keywords[] = {
-    "switch", "assert"
+  "switch", "assert", "const"
+}; // TODO add more
+
+static std::string __reserved_classes[] = {
+  "Shape"
 }; // TODO add more
 
 
@@ -61,6 +65,13 @@ inline std::string FromPascalToCamelCase(const std::string& str) {
 
 inline std::string ProtectReservedKeywords(const std::string& str, const std::string& suffix) {
   if (std::find(std::begin(__reserved_keywords), std::end(__reserved_keywords), str) != std::end(__reserved_keywords)) {
+    return str + suffix;
+  }
+  return str;
+}
+
+inline std::string ProtectReservedClasses(const std::string& str, const std::string& suffix) {
+  if (std::find(std::begin(__reserved_classes), std::end(__reserved_classes), str) != std::end(__reserved_classes)) {
     return str + suffix;
   }
   return str;

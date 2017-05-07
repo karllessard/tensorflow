@@ -66,6 +66,10 @@ public class DecodeJpeg extends SingleResultNode {
     private float acceptableFraction = 1.0f;
     private String dctMethods = "";
   }
+  
+  public Output image() {
+    return op().output(0);
+  }
 
   private DecodeJpeg(Operation op) {
     super(op);

@@ -1,6 +1,7 @@
 package org.tensorflow.op;
 
 import org.tensorflow.op.image.ImageOps;
+import org.tensorflow.op.math.MathOps;
 import org.tensorflow.op.std.Constant;
 import org.tensorflow.op.std.StdOps;
 
@@ -11,10 +12,12 @@ public class GraphBuilder implements AutoCloseable {
     Api(Scope scope) {
       stdOps = new StdOps(scope);
       imageOps = new ImageOps(scope);
+      mathOps = new MathOps(scope);
     }
     
     private StdOps stdOps;
     private ImageOps imageOps;
+    private MathOps mathOps;
   }
 
   public GraphBuilder() {
@@ -29,6 +32,10 @@ public class GraphBuilder implements AutoCloseable {
   
   public ImageOps image() {
     return api.imageOps;
+  }
+  
+  public MathOps math() {
+    return api.mathOps;
   }
   
   // Exposes STD operations directly from the GraphBuilder

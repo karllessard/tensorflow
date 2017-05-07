@@ -23,7 +23,7 @@ package org.tensorflow;
  * <p><b>WARNING:</b> Resources consumed by the Graph object msut be explicitly freed by invoking
  * the {@link #close()} method then the Graph object is no longer needed.
  */
-public final class Graph implements AutoCloseable {
+public class Graph implements AutoCloseable {
 
   /** Create an empty Graph. */
   public Graph() {

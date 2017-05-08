@@ -20,7 +20,7 @@ public class GraphBuilderTest {
   @Test
   public void testBuildingSingleResultNodeWithName() throws Exception {
     try (GraphBuilder gb = new GraphBuilder()) {
-      gb.constant(testImageBytes).as("image");
+      gb.constant(testImageBytes).op("image");
     }
   }
 
@@ -34,7 +34,7 @@ public class GraphBuilderTest {
   @Test
   public void testPassingSingleResultNodeAsAnInput() throws Exception {
     try (GraphBuilder gb = new GraphBuilder()) {
-      Constant image = gb.constant(testImageBytes).as("image");
+      Constant image = gb.constant(testImageBytes).op("image");
       gb.image().decodeJpeg(image);
     }
   }
@@ -57,7 +57,9 @@ public class GraphBuilderTest {
   @Test
   public void testBuildGraph() throws Exception {
     try (GraphBuilder gb = new GraphBuilder()) {
-      gb.image().decodeJpeg(gb.constant(testImageBytes)).asRoot();
+      gb.withRoot(
+           gb.image().decodeJpeg(gb.constant(testImageBytes)).op()
+      );
       gb.build();
     }
   }
@@ -65,7 +67,9 @@ public class GraphBuilderTest {
   @Test
   public void testRunSessionFromGraphRoot() throws Exception {
     try (GraphBuilder gb = new GraphBuilder()) {
-      gb.image().decodeJpeg(gb.constant(testImageBytes)).asRoot();
+      gb.withRoot(
+          gb.image().decodeJpeg(gb.constant(testImageBytes)).op()
+      );
       Graph2 graph = gb.build();
 
       try (Session ss = new Session(graph)) {

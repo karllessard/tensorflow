@@ -9,23 +9,11 @@ public abstract class NodeBuilder<T extends Node> {
       this.opType = opType;
     }
 
-    public T asRoot() {
-      T node = build();
-      scope.graph().root(node);
-      return node;
-    }
-    
-    public T asRoot(String name) {
-      T node = as(name);
-      scope.graph().root(node);
-      return node;
-    }
-    
-    public T build() {
-      return as(opType);
+    public T op() {
+      return op(opType);
     }
 
-    public T as(String name) {
+    public T op(String name) {
       OperationBuilder opBuilder = scope.opBuilder(opType, name);
       try {
         return buildOp(opBuilder);

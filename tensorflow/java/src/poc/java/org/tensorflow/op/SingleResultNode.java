@@ -14,7 +14,7 @@ public abstract class SingleResultNode extends Node implements InputSource {
 
     @Override
     public Output input() {
-      return build().input();
+      return op().input();
     }
   }
 

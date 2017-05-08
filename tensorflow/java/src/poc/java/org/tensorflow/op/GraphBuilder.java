@@ -42,6 +42,11 @@ public class GraphBuilder implements AutoCloseable {
   public Constant.Builder constant(Object value) {
     return api.stdOps.constant(value);
   }
+
+  public GraphBuilder withRoot(Node node) {
+    graph.root(node);
+    return this;
+  }
   
   public GraphBuilder withSubscope(String prefix) {
     return new GraphSubBuilder(graph, new Scope(graph, prefix));

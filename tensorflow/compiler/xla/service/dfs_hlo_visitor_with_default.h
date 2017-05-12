@@ -96,6 +96,9 @@ class DfsHloVisitorWithDefault : public DfsHloVisitor {
   Status HandleInfeed(HloInstruction* infeed) override {
     return DefaultAction(infeed);
   }
+  Status HandleOutfeed(HloInstruction* outfeed) override {
+    return DefaultAction(outfeed);
+  }
   Status HandleReverse(HloInstruction* reverse,
                        HloInstruction* /*operand*/) override {
     return DefaultAction(reverse);
@@ -118,9 +121,7 @@ class DfsHloVisitorWithDefault : public DfsHloVisitor {
   Status HandleFusion(HloInstruction* fusion) override {
     return DefaultAction(fusion);
   }
-  Status HandleCall(HloInstruction* call,
-                    tensorflow::gtl::ArraySlice<HloInstruction*> /*operands*/,
-                    HloComputation* /*computation*/) override {
+  Status HandleCall(HloInstruction* call) override {
     return DefaultAction(call);
   }
   Status HandleCustomCall(
@@ -185,9 +186,7 @@ class DfsHloVisitorWithDefault : public DfsHloVisitor {
   Status HandleTranspose(HloInstruction* transpose) override {
     return DefaultAction(transpose);
   }
-  Status HandleWhile(HloInstruction* xla_while, HloInstruction* /*init*/,
-                     HloComputation* /*condition*/,
-                     HloComputation* /*body*/) override {
+  Status HandleWhile(HloInstruction* xla_while) override {
     return DefaultAction(xla_while);
   }
   Status HandleSend(HloInstruction* send) override {

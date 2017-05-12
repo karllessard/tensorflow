@@ -43,7 +43,7 @@ class ReduceWindowTest : public ClientLibraryTestBase {
  public:
   ReduceWindowTest() : builder_(client_, TestName()) {}
 
-  void ReduceWindowAdd(ComputationDataHandle input,
+  void ReduceWindowAdd(const ComputationDataHandle& input,
                        tensorflow::gtl::ArraySlice<int64> window_dimensions,
                        tensorflow::gtl::ArraySlice<int64> window_strides,
                        Padding padding) {
@@ -52,7 +52,7 @@ class ReduceWindowTest : public ClientLibraryTestBase {
                           window_dimensions, window_strides, padding);
   }
 
-  void ReduceWindowMax(ComputationDataHandle input,
+  void ReduceWindowMax(const ComputationDataHandle& input,
                        tensorflow::gtl::ArraySlice<int64> window_dimensions,
                        tensorflow::gtl::ArraySlice<int64> window_strides,
                        Padding padding) {
@@ -61,7 +61,7 @@ class ReduceWindowTest : public ClientLibraryTestBase {
         CreateScalarMax(), window_dimensions, window_strides, padding);
   }
 
-  void ReduceWindowMin(ComputationDataHandle input,
+  void ReduceWindowMin(const ComputationDataHandle& input,
                        tensorflow::gtl::ArraySlice<int64> window_dimensions,
                        tensorflow::gtl::ArraySlice<int64> window_strides,
                        Padding padding) {
@@ -182,6 +182,7 @@ TEST_F(ReduceWindowTest, DISABLED_AmongMajor2DimsMediumSizeLargePadding) {
 
   ComputeAndCompareR4<float>(&builder_, *result, {}, ErrorSpec(1e-3, 1e-3));
 }
+
 // TODO(b/31809540): Implement minor dim reduction to reduce num of reshapes.
 TEST_F(ReduceWindowTest, ReduceR4AmongXYMinorSmall) {
   Array4D<float> input_array(2, 2, 4, 16);
@@ -368,6 +369,16 @@ TEST_F(ReduceWindowTest, Add2x2In2x2Disjoint) {
   ComputeAndCompareR2<float>(&builder_, expected, {}, ErrorSpec(0.0001));
 }
 
+TEST_F(ReduceWindowTest, Add1x2In2x2Same) {
+  Array2D<float> input_array({{1.0f, 2.0f}, {3.0f, 4.0f}});
+  auto input = builder_.ConstantR2FromArray2D<float>(input_array);
+  ReduceWindowAdd(input, {1, 2}, {1, 1}, Padding::kSame);
+  Array2D<float> expected({
+      {3.0f, 2.0f}, {7.0f, 4.0f},
+  });
+  ComputeAndCompareR2<float>(&builder_, expected, {}, ErrorSpec(0.0001));
+}
+
 XLA_TEST_F(ReduceWindowTest, Add1x1x2In2x1x2) {
   Array3D<float> input_array(2, 1, 2);
   input_array(0, 0, 0) = 1000;
@@ -446,10 +457,16 @@ XLA_TEST_F(ReduceWindowTest, NonstandardReduceFunction) {
                         /*window_dimensions=*/{1, 1, 2, 1},
                         /*window_strides=*/{1, 1, 1, 1}, padding);
 
-  Array4D<float> expected(1, 2, 1, 1);
-  expected(0, 0, 0, 0) = 6;
-  expected(0, 1, 0, 0) = 8;
-  ComputeAndCompareR4<float>(&builder_, expected, {}, ErrorSpec(1e-3, 1e-3));
+  const auto reduce_func = [](float arg1, float arg2) {
+    return std::min<float>(arg1 + arg2, 8.0f);
+  };
+
+  auto expected =
+      ReferenceUtil::ReduceWindow4DGeneric(input_array, 3.0f, reduce_func,
+                                           /*window=*/{1, 1, 2, 1},
+                                           /*stride=*/{1, 1, 1, 1}, padding);
+
+  ComputeAndCompareR4<float>(&builder_, *expected, {}, ErrorSpec(1e-3, 1e-3));
 }
 
 }  // namespace

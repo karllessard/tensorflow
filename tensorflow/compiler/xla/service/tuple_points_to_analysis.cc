@@ -33,7 +33,8 @@ limitations under the License.
 namespace xla {
 
 string BufferAlias::ToString() const {
-  return tensorflow::strings::StrCat("BufferAlias(", instruction_->name(), "[",
+  return tensorflow::strings::StrCat("BufferAlias(",
+                                     instruction_->FullyQualifiedName(), "[",
                                      tensorflow::str_util::Join(index_, ","),
                                      "] => ", buffer_->ToString(), ")");
 }
@@ -77,8 +78,9 @@ size_t PointsToSet::size() const {
   return CreateFlattenedSet().size();
 }
 
-std::set<const LogicalBuffer*> PointsToSet::CreateFlattenedSet() const {
-  std::set<const LogicalBuffer*> flat_set;
+tensorflow::gtl::FlatSet<const LogicalBuffer*> PointsToSet::CreateFlattenedSet()
+    const {
+  tensorflow::gtl::FlatSet<const LogicalBuffer*> flat_set;
   TF_CHECK_OK(ForEachElement(
       [&flat_set](const ShapeIndex& /*index*/, bool /*is_leaf*/,
                   const std::vector<const LogicalBuffer*>& buffers) {
@@ -140,28 +142,43 @@ Status TuplePointsToAnalysis::Analyze() {
   points_to_.clear();
   for (auto& computation : module_->computations()) {
     TF_RETURN_IF_ERROR(computation->Accept(this));
+    TF_RETURN_IF_ERROR(
+        PopulateDefinedBuffersAndAliases(computation->instructions()));
+    // Run points-to analysis on fusion instructions in 'computation'.
     for (auto& instruction : computation->instructions()) {
-      TF_RETURN_IF_ERROR(GatherBuffersDefinedByInstruction(
-          instruction.get(), &instruction_defined_buffers_[instruction.get()]));
-
-      const PointsToSet& points_to_set = GetPointsToSet(instruction.get());
-      TF_RETURN_IF_ERROR(points_to_set.ForEachElement([this, &instruction](
-          const ShapeIndex& index, bool /*is_leaf*/,
-          const std::vector<const LogicalBuffer*>& pointed_to_buffers) {
-        for (const LogicalBuffer* buffer : pointed_to_buffers) {
-          if (buffer_aliases_.count(buffer) == 0) {
-            buffer_aliases_.insert({buffer, std::vector<BufferAlias>()});
-          }
-          buffer_aliases_[buffer].emplace_back(*buffer, instruction.get(),
-                                               index);
-        }
-        return Status::OK();
-      }));
+      if (instruction->opcode() != HloOpcode::kFusion) {
+        continue;
+      }
+      TF_RETURN_IF_ERROR(instruction->fused_expression_root()->Accept(this));
+      TF_RETURN_IF_ERROR(
+          PopulateDefinedBuffersAndAliases(instruction->fused_instructions()));
     }
   }
 
   XLA_VLOG_LINES(3, ToString());
 
+  return Status::OK();
+}
+
+Status TuplePointsToAnalysis::PopulateDefinedBuffersAndAliases(
+    const std::list<std::unique_ptr<HloInstruction>>& instructions) {
+  for (auto& instruction : instructions) {
+    TF_RETURN_IF_ERROR(GatherBuffersDefinedByInstruction(
+        instruction.get(), &instruction_defined_buffers_[instruction.get()]));
+
+    const PointsToSet& points_to_set = GetPointsToSet(instruction.get());
+    TF_RETURN_IF_ERROR(points_to_set.ForEachElement([this, &instruction](
+        const ShapeIndex& index, bool /*is_leaf*/,
+        const std::vector<const LogicalBuffer*>& pointed_to_buffers) {
+      for (const LogicalBuffer* buffer : pointed_to_buffers) {
+        if (buffer_aliases_.count(buffer) == 0) {
+          buffer_aliases_.insert({buffer, std::vector<BufferAlias>()});
+        }
+        buffer_aliases_[buffer].emplace_back(*buffer, instruction.get(), index);
+      }
+      return Status::OK();
+    }));
+  }
   return Status::OK();
 }
 
@@ -344,7 +361,7 @@ PointsToSet& TuplePointsToAnalysis::CreateEmptyPointsToSet(
 }
 
 bool TuplePointsToAnalysis::InstructionDefinesBufferAtIndex(
-    HloInstruction* instruction, const ShapeIndex& index) const {
+    const HloInstruction* instruction, const ShapeIndex& index) const {
   const std::vector<const LogicalBuffer*>& buffers =
       GetPointsToSet(instruction).element(index);
   return (buffers.size() == 1 && buffers[0]->instruction() == instruction);
@@ -453,43 +470,53 @@ PointsToSet& TuplePointsToAnalysis::CreateCopiedPointsToSet(
 string TuplePointsToAnalysis::ToString() const {
   string output = tensorflow::strings::Printf(
       "TuplePointsToSet for module %s:\n", module_->name().c_str());
-  for (auto& computation : module_->computations()) {
-    tensorflow::strings::StrAppend(&output, "computation ",
-                                   computation->name().c_str(), ":\n");
+  for (const auto& computation : module_->computations()) {
+    const char* entry =
+        computation.get() == module_->entry_computation() ? "entry " : "";
+    tensorflow::strings::StrAppend(&output, entry, "computation ",
+                                   computation->name(), ":\n");
     for (const HloInstruction* instruction :
          computation->MakeInstructionPostOrder()) {
-      tensorflow::strings::StrAppend(&output, "  instruction ",
-                                     instruction->ToShortString(), ":\n");
-      const PointsToSet& points_to_set = GetPointsToSet(instruction);
-      TF_CHECK_OK(points_to_set.ForEachElement(
-          [&output](const ShapeIndex& index, bool /*is_leaf*/,
-                    const std::vector<const LogicalBuffer*>& points_to) {
-            tensorflow::strings::StrAppend(
-                &output, "    {", tensorflow::str_util::Join(index, ","), "}: ",
-                tensorflow::str_util::Join(
-                    points_to, ", ",
-                    [](string* out, const LogicalBuffer* source) {
-                      out->append(source->ToString());
-                    }),
-                "\n");
-            return Status::OK();
-          }));
-    }
-    for (auto& buffer : logical_buffers_) {
-      tensorflow::strings::StrAppend(&output, "  buffer ", buffer->ToString(),
-                                     ":\n");
-      for (const BufferAlias& buffer_alias : buffer_aliases_.at(buffer.get())) {
-        tensorflow::strings::StrAppend(&output, "    alias ",
-                                       buffer_alias.ToString(), "\n");
+      InstructionToString(instruction, &output);
+      if (instruction->opcode() == HloOpcode::kFusion) {
+        for (auto& fused : instruction->fused_instructions()) {
+          InstructionToString(fused.get(), &output);
+        }
       }
     }
   }
 
   tensorflow::strings::StrAppend(&output, "LogicalBuffers:\n");
-  for (const auto& buffer : logical_buffers_) {
-    tensorflow::strings::StrAppend(&output, "  ", buffer->ToString());
+  for (auto& buffer : logical_buffers_) {
+    tensorflow::strings::StrAppend(&output, "  buffer ", buffer->ToString(),
+                                   ":\n");
+    for (const BufferAlias& buffer_alias : buffer_aliases_.at(buffer.get())) {
+      tensorflow::strings::StrAppend(&output, "    alias ",
+                                     buffer_alias.ToString(), "\n");
+    }
   }
   return output;
+}
+
+void TuplePointsToAnalysis::InstructionToString(
+    const HloInstruction* instruction, string* output) const {
+  const string prefix = instruction->IsFused() ? "    " : "";
+  tensorflow::strings::StrAppend(output, prefix, "  instruction ",
+                                 instruction->ToShortString(), ":\n");
+  const PointsToSet& points_to_set = GetPointsToSet(instruction);
+  TF_CHECK_OK(points_to_set.ForEachElement([&prefix, &output](
+      const ShapeIndex& index, bool /*is_leaf*/,
+      const std::vector<const LogicalBuffer*>& points_to) {
+    tensorflow::strings::StrAppend(
+        output, prefix, "    {", tensorflow::str_util::Join(index, ","), "}: ",
+        tensorflow::str_util::Join(
+            points_to, ", ",
+            [](string* out, const LogicalBuffer* source) {
+              out->append(source->ToString());
+            }),
+        "\n");
+    return Status::OK();
+  }));
 }
 
 }  // namespace xla

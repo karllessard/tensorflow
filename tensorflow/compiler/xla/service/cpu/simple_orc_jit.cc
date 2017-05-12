@@ -24,7 +24,6 @@ limitations under the License.
 #include "external/llvm/include/llvm/IR/Mangler.h"
 #include "external/llvm/include/llvm/Support/CodeGen.h"
 #include "external/llvm/include/llvm/Support/Host.h"
-#include "tensorflow/compiler/xla/legacy_flags/llvm_backend_flags.h"
 #include "tensorflow/compiler/xla/ptr_util.h"
 #include "tensorflow/compiler/xla/service/cpu/compiler_functor.h"
 #include "tensorflow/compiler/xla/service/cpu/cpu_runtime.h"
@@ -113,11 +112,23 @@ llvm::SmallVector<std::string, 0> DetectMachineAttributes() {
   if (llvm::sys::getHostCPUFeatures(host_features)) {
     for (auto &feature : host_features) {
       if (feature.second) {
-        result.push_back(feature.first());
+        llvm::StringRef feature_name = feature.first();
+        // Skip avx512 for now, it isn't quite ready in LLVM.
+        if (feature_name.startswith("avx512")) {
+          continue;
+        }
+        result.push_back(feature_name);
       }
     }
   }
   return result;
+}
+
+llvm::StringRef GetHostCpuName() {
+  auto cpu_name = llvm::sys::getHostCPUName();
+  // Skip avx512 for now, it isn't quite ready in LLVM.
+  cpu_name.consume_back("-avx512");
+  return cpu_name;
 }
 
 CompilerFunctor::VectorIntrinsics GetAvailableIntrinsics() {
@@ -137,13 +148,16 @@ SimpleOrcJIT::SimpleOrcJIT(const llvm::TargetOptions &target_options,
                             .setOptLevel(opt_level)
                             .selectTarget(
                                 /*TargetTriple=*/llvm::Triple(), /*MArch=*/"",
-                                /*MCPU=*/llvm::sys::getHostCPUName(),
+                                /*MCPU=*/GetHostCpuName(),
                                 /*MAttrs=*/DetectMachineAttributes()))),
       disassembler_(*target_machine_),
       data_layout_(target_machine_->createDataLayout()),
       compile_layer_(object_layer_,
                      CompilerFunctor(target_machine_.get(), &disassembler_,
-                                     opt_level, GetAvailableIntrinsics())) {}
+                                     opt_level, GetAvailableIntrinsics())) {
+  VLOG(1) << "CPU target: " << target_machine_->getTargetCPU().str()
+          << " features: " << target_machine_->getTargetFeatureString().str();
+}
 
 SimpleOrcJIT::ModuleHandleT SimpleOrcJIT::AddModule(
     std::unique_ptr<llvm::Module> module) {

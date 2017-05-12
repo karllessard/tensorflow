@@ -72,10 +72,17 @@ class ShapeIndex {
     return indices_ == other.indices_;
   }
   bool operator!=(const ShapeIndex& other) const { return !(*this == other); }
+  bool operator<(const ShapeIndex& other) const {
+    return indices_ < other.indices_;
+  }
+
+  string ToString() const;
 
  private:
   std::vector<int64> indices_;
 };
+
+std::ostream& operator<<(std::ostream& out, const ShapeIndex& shape_index);
 
 // Namespaced collection of (static) shape utilities.
 //
@@ -95,13 +102,9 @@ class ShapeUtil {
   // shapes. This includes only the size of the top-level buffer. For example, a
   // tuple is stored as an array of pointers to other buffers. In this case,
   // this method only returns the size of the pointer array.
-  static int64 ByteSizeOf(const Shape& shape, int64 pointer_size);
-
-  // Returns the number of bytes required for an allocation of shape.
-  // The calculation for tuple shapes assumes that we are utilizing host
-  // pointers.
-  // Precondition: !ShapeUtil::IsOpaque(shape)
-  static int64 ByteSizeOf(const Shape& shape);
+  // Precondition: (!ShapeUtil::IsTuple(shape) || pointer_size > 0) &&
+  //               !ShapeUtil::IsOpaque(shape)
+  static int64 ByteSizeOf(const Shape& shape, int64 pointer_size = -1);
 
   // Returns the number of bytes used to store the primitive_type.
   //
@@ -224,7 +227,7 @@ class ShapeUtil {
   // Validates that the provided shape satisfies invariants.
   static Status ValidateShape(const Shape& shape);
 
-  // Validates the the provided shape satisfies invariants, except those that
+  // Validates the provided shape satisfies invariants, except those that
   // pertain to layout.
   //
   // Layout is optional for client-provided shapes, so that the compiler may
@@ -296,13 +299,14 @@ class ShapeUtil {
   // pre-order starting with the entire shape (index {}).
   using VisitorFunction = std::function<Status(const Shape& /*subshape*/,
                                                const ShapeIndex& /*index*/)>;
-  static Status ForEachSubshape(const Shape& shape, VisitorFunction func);
+  static Status ForEachSubshape(const Shape& shape,
+                                const VisitorFunction& func);
 
   // Mutating variant of ForEachSubshape.
   using MutatingVisitorFunction =
       std::function<Status(Shape* /*subshape*/, const ShapeIndex& /*index*/)>;
   static Status ForEachMutableSubshape(Shape* shape,
-                                       MutatingVisitorFunction func);
+                                       const MutatingVisitorFunction& func);
 
   // Removes all degenerate dimensions (size one) from the given shape. The
   // stripped minor_to_major preserves the relative ordering of non-degenerate
@@ -386,6 +390,19 @@ class ShapeUtil {
   // • `FilterDimensions(is_even_number, T[m, n, k]) = T[m, k]`
   static Shape FilterDimensions(const std::function<bool(int64)>& p,
                                 Shape shape);
+
+  // Iterates through all the shape indexes, in minor to major order, starting
+  // from the base indexes, incrementing by the incr steps, up to count
+  // (index[i] < base[i] + count[i]), and calls the visitor_function with the
+  // current index.
+  // The visitor_function visitor function should return true if it wants to
+  // continue, or false otherwise.
+  using IndexVisitorFunction = std::function<bool(const std::vector<int64>&)>;
+  static void ForEachIndex(const Shape& shape,
+                           tensorflow::gtl::ArraySlice<int64> base,
+                           tensorflow::gtl::ArraySlice<int64> count,
+                           tensorflow::gtl::ArraySlice<int64> incr,
+                           const IndexVisitorFunction& visitor_function);
 
  private:
   // Validates all of the non-layout properties of the shape -- this is a helper

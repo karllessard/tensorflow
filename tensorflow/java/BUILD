@@ -38,7 +38,7 @@ java_test(
     deps = [
         ":tensorflow",
         ":testutil",
-        "//external:junit",
+        "@junit",
     ],
 )
 
@@ -50,7 +50,32 @@ java_test(
     deps = [
         ":tensorflow",
         ":testutil",
-        "//external:junit",
+        "@junit",
+    ],
+)
+
+java_test(
+    name = "OperationTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/OperationTest.java"],
+    test_class = "org.tensorflow.OperationTest",
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
+    ],
+)
+
+java_test(
+    name = "SavedModelBundleTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/SavedModelBundleTest.java"],
+    data = ["//tensorflow/cc/saved_model:saved_model_half_plus_two"],
+    test_class = "org.tensorflow.SavedModelBundleTest",
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
     ],
 )
 
@@ -62,7 +87,19 @@ java_test(
     deps = [
         ":tensorflow",
         ":testutil",
-        "//external:junit",
+        "@junit",
+    ],
+)
+
+java_test(
+    name = "ShapeTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/ShapeTest.java"],
+    test_class = "org.tensorflow.ShapeTest",
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
     ],
 )
 
@@ -73,7 +110,7 @@ java_test(
     test_class = "org.tensorflow.TensorFlowTest",
     deps = [
         ":tensorflow",
-        "//external:junit",
+        "@junit",
     ],
 )
 
@@ -84,7 +121,8 @@ java_test(
     test_class = "org.tensorflow.TensorTest",
     deps = [
         ":tensorflow",
-        "//external:junit",
+        ":testutil",
+        "@junit",
     ],
 )
 
@@ -94,6 +132,7 @@ filegroup(
         "//tensorflow:darwin": [":libtensorflow_jni.dylib"],
         "//conditions:default": [":libtensorflow_jni.so"],
     }),
+    visibility = ["//visibility:public"],
 )
 
 LINKER_VERSION_SCRIPT = ":config/version_script.lds"

@@ -34,6 +34,7 @@ limitations under the License.
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/lib/gtl/flatmap.h"
+#include "tensorflow/core/lib/gtl/flatset.h"
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/platform/types.h"
 
@@ -65,7 +66,7 @@ class PointsToSet : public ShapeTree<std::vector<const LogicalBuffer*>> {
 
   // Creates a set containing the union of all LogicalBuffers contained in the
   // PointsToSet.
-  std::set<const LogicalBuffer*> CreateFlattenedSet() const;
+  tensorflow::gtl::FlatSet<const LogicalBuffer*> CreateFlattenedSet() const;
 
   // Returns true if the given buffer is in the points-to set at the given
   // index.
@@ -147,6 +148,7 @@ std::ostream& operator<<(std::ostream& out, const BufferAlias& buffer_alias);
 // the potential sources of each buffer in each instruction's output.
 class TuplePointsToAnalysis : public DfsHloVisitorWithDefault {
  public:
+  // Runs points-to analysis on 'module'.
   static StatusOr<std::unique_ptr<TuplePointsToAnalysis>> Run(
       const HloModule* module);
 
@@ -185,7 +187,7 @@ class TuplePointsToAnalysis : public DfsHloVisitorWithDefault {
       const HloInstruction* instruction) const;
 
   // Returns true if the given instruction defines a buffer at the given index.
-  bool InstructionDefinesBufferAtIndex(HloInstruction* instruction,
+  bool InstructionDefinesBufferAtIndex(const HloInstruction* instruction,
                                        const ShapeIndex& index) const;
 
   // Returns an OK status if the given buffer is defined by instruction
@@ -219,6 +221,13 @@ class TuplePointsToAnalysis : public DfsHloVisitorWithDefault {
   // object and before calling GetPointsToSet.
   Status Analyze();
 
+  // Populates instruction-defined buffers and aliases for each instruction
+  // in 'instructions'. The parameter 'instructions' is passed in a form
+  // common to how both HloComputation, and fusion instructions maintain a
+  // list of instructions.
+  Status PopulateDefinedBuffersAndAliases(
+      const std::list<std::unique_ptr<HloInstruction>>& instructions);
+
   // Create a new logical buffer and return a reference to it. The newly created
   // buffer is stored in an internal vector of LogicalBuffers and can be
   // accessed with GetBuffer.
@@ -239,6 +248,10 @@ class TuplePointsToAnalysis : public DfsHloVisitorWithDefault {
       const HloInstruction* instruction,
       std::vector<const LogicalBuffer*>* buffers);
 
+  // Print points-to set for 'instruction' to 'output'.
+  void InstructionToString(const HloInstruction* instruction,
+                           string* output) const;
+
   // The module this analysis is performed on.
   const HloModule* module_;
 
@@ -247,10 +260,11 @@ class TuplePointsToAnalysis : public DfsHloVisitorWithDefault {
       points_to_;
 
   // A map containing the LogicalBuffers defined by each HLO instruction.
-  std::unordered_map<const HloInstruction*, std::vector<const LogicalBuffer*>>
+  tensorflow::gtl::FlatMap<const HloInstruction*,
+                           std::vector<const LogicalBuffer*>>
       instruction_defined_buffers_;
 
-  std::unordered_map<const LogicalBuffer*, std::vector<BufferAlias>>
+  tensorflow::gtl::FlatMap<const LogicalBuffer*, std::vector<BufferAlias>>
       buffer_aliases_;
 
   // All logical buffers in the module, indexed by LogicalBuffer::Id. Keep as

@@ -17,7 +17,31 @@ public final class ${op_name_pc} extends Node ${op_implements} {
     opBuilder =
       ctx.graph().opBuilder(OP_TYPE, ctx.nameScope().makeOpName(OP_TYPE))${op_inputs_builder};
   }
-${op_attrs}${op_outputs}${op_implement_method}
+${op_attrs[
+
+  public ${op_name_pc} with${attr_name_pc}(${attr_type} value) {
+    opBuilder.setAttr("${attr_name}", value);
+    return this;
+  }
+]}
+${op_outputs[
+
+  private Output${output_is_array} ${output_name_cc};
+
+  public ${output_type} ${output_name_cc}() {
+    maybeBuild();
+    return ${output_type}.of(${output_name_cc});
+  }
+]}
+${op_implement_method[
+
+  @Override
+  public Output${output_is_array} ${op_method_name}() {
+    maybeBuild();
+    return ${output_name_cc};
+  }
+]}
+
   private final void maybeBuild() {
     if (opBuilder == null) {
       return;
@@ -25,7 +49,13 @@ ${op_attrs}${op_outputs}${op_implement_method}
 
     Operation op = opBuilder.build();
     int _opIndex = 0;
-${op_output_setter}
+${op_output_setter[
+    ${output_name_cc} = op.output(_opIndex++);
+]}
+${op_output_list_setter[
+    ${output_name_cc} = makeOutputs(op, _opIndex, "${output_name_cc}");
+    _opIndex += ${output_name_cc}.length;
+]}
     opBuilder = null;
   }
 

@@ -77,6 +77,15 @@ inline std::string ProtectReservedClasses(const std::string& str, const std::str
   return str;
 }
 
+inline string ReplaceAll(const string& in, const string& find, const string& replace) {
+  string copy(in);
+  size_t findPos;
+  while(string::npos != (findPos = in.find(find, findPos))) {
+    copy.replace(findPos, find.length(), replace);
+    findPos += replace.length();
+  }
+  return copy;
+}
 
 } /* namespace tensorflow */
 

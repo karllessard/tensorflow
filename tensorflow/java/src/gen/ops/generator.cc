@@ -34,7 +34,6 @@ void OpGenerator::Run(Env* env, bool include_internal) {
 }
 
 void OpGenerator::WriteOps(const OpList& ops) {
-
   string lib_name_pc = FromUnderscoreToPascalCase(lib_name);
   string lib_name_cc = FromPascalToCamelCase(lib_name_pc);
 
@@ -56,7 +55,8 @@ void OpGenerator::WriteOp(const OpDef& op, Template::Params& params) {
   string op_name_pc = ProtectReservedClasses(op.name(), "Op");
   params["op_name_pc"] = op_name_pc;
   params["op_name_cc"] = ProtectReservedKeywords(FromPascalToCamelCase(op.name()), "Op");
-  params["op_name_desc"] = ReplaceAll(op.summary() + "\n\n" + op.description(), "\n", "\n// ");
+  params["op_summary"] = EscapeDoc(op.summary(), 0);
+  params["op_description"] = EscapeDoc(op.description(), 0);
 
   TypeEvaluator type_evaluator(op);
 
@@ -78,18 +78,19 @@ void OpGenerator::WriteOp(const OpDef& op, Template::Params& params) {
 
   // Write operation outputs
   string output_type, output_name_cc;
-  for (const OpDef_ArgDef& arg : op.output_arg()) {
-    const Type type = type_evaluator.TypeOf(arg);
+  for (const OpDef_ArgDef& output : op.output_arg()) {
+    const Type type = type_evaluator.TypeOf(output);
 
     if (ImportType(type, params)) {
       Template::Params output_params(params);
 
-      output_name_cc = FromUnderscoreToCamelCase(arg.name());
+      output_name_cc = FromUnderscoreToCamelCase(output.name());
       output_type = type.JavaType();
 
       output_params["output_name_cc"] = output_name_cc;
       output_params["output_type"] = output_type;
-      output_params["output_is_array"] = type_evaluator.ArgIsList(arg) ? "[]" : "";
+      output_params["output_is_array"] = type_evaluator.ArgIsList(output) ? "[]" : "";
+      output_params["output_doc"] = EscapeDoc(output.description(), 2);
 
       if (op.output_arg().size() == 1) {
         // have the class implement the output class, and implement
@@ -125,6 +126,7 @@ void OpGenerator::WriteOp(const OpDef& op, Template::Params& params) {
       attr_params["attr_name"] = attr.name();
       attr_params["attr_name_pc"] = attr_name_pc;
       attr_params["attr_type"] = type.JavaType();
+      attr_params["attr_doc"] = EscapeDoc(attr.description(), 2);
 
       params.groups["op_attrs"].push_back(attr_params);
 
@@ -151,22 +153,34 @@ bool OpGenerator::ImportType(const Type& type, Template::Params& params) {
   return false;
 }
 
-string OpGenerator::ReplaceAll(const string& in, const string& find, const string& replace) {
-  string newString;
-  newString.reserve(in.length());  // avoids a few memory allocations
+string OpGenerator::EscapeDoc(const string& doc, int indent) {
+  string javadoc;
+  javadoc.reserve(doc.length());
+  string newline = "\n" + string(indent, ' ') + " * ";
 
-  string::size_type lastPos = 0;
-  string::size_type findPos;
-
-  while(string::npos != (findPos = in.find(find, lastPos))) {
-    newString.append(in, lastPos, findPos - lastPos);
-    newString += replace;
-    lastPos = findPos + find.length();
+  for (const char& c : doc) {
+    switch (c) {
+      case '\n':
+        javadoc.append(newline);
+        break;
+      case '`':
+        // skip
+        break;
+      case '\'':
+        // skip
+        break;
+      case '*':
+        javadoc.push_back('-');
+        break;
+      default:
+        javadoc.push_back(c);
+        break;
+    }
   }
-
-  // Care for the rest after last occurrence
-  newString += in.substr(lastPos);
-  return newString;
+  if (!javadoc.empty() && javadoc.at(javadoc.length() - 1) != '.') {
+    javadoc.push_back('.');
+  }
+  return javadoc;
 }
 
 } // namespace tensorflow

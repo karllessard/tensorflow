@@ -8,31 +8,21 @@ import org.tensorflow.ops.OperationContext;
 import org.tensorflow.ops.Node;
 ${imports}
 
-// ${op_name_desc}
-
+/**
+ * ${op_summary}
+ *
+ * ${op_description}
+ */
 @Operator(group = "${pkg_name}")
 public final class ${op_name_pc} extends Node ${op_implements} {
 
+  /**
+   * Constructor.
+   */
   public ${op_name_pc}(OperationContext ctx${op_inputs}) {
     opBuilder =
       ctx.graph().opBuilder(OP_TYPE, ctx.nameScope().makeOpName(OP_TYPE))${op_inputs_builder};
   }
-${op_attrs[
-
-  public ${op_name_pc} with${attr_name_pc}(${attr_type} value) {
-    opBuilder.setAttr("${attr_name}", value);
-    return this;
-  }
-]}
-${op_outputs[
-
-  private Output${output_is_array} ${output_name_cc};
-
-  public ${output_type} ${output_name_cc}() {
-    maybeBuild();
-    return ${output_type}.of(${output_name_cc});
-  }
-]}
 ${op_implement_method[
 
   @Override
@@ -40,6 +30,33 @@ ${op_implement_method[
     maybeBuild();
     return ${output_name_cc};
   }
+]}
+${op_attrs[
+
+  /**
+   * ${attr_doc}
+   *
+   * @param value value to set
+   * @return this object
+   */
+  public ${op_name_pc} with${attr_name_pc}(${attr_type} value) {
+    opBuilder.setAttr("${attr_name}", value);
+    return this;
+  }
+]}
+${op_outputs[
+
+  /**
+   * ${output_doc}
+   *
+   * @return output value
+   */
+  public ${output_type} ${output_name_cc}() {
+    maybeBuild();
+    return ${output_type}.of(${output_name_cc});
+  }
+
+  private Output${output_is_array} ${output_name_cc};
 ]}
 
   private final void maybeBuild() {

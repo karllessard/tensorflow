@@ -274,7 +274,7 @@ java_binary(
     srcs = glob(["src/example/java/org/tensorflow/**/*.java"]),
     deps = [":tensorflow_with_ops"],
     data = [":libtensorflow_jni"],
-    main_class = "com.tensorflow.example.HelloWorld",
+    main_class = "org.tensorflow.example.HelloWorld",
 )
 
 tf_gen_op_wrappers_java(

@@ -29,15 +29,12 @@ private:
 
   void WriteOps(const OpList& ops);
   void WriteOp(const OpDef& op, Template::Params& params);
-  const std::string ConvertTypeToJava(const std::string& type);
-  const std::string ConvertTypeToJava(int ctype);
   bool ImportType(const Type& type, Template::Params& params);
-  std::string ReplaceAll(const std::string& in, const std::string& find, const std::string& replace);
+  std::string EscapeDoc(const std::string& src, int indent);
 
   inline string ToFileName(string base_name) {
     return file_path + base_name + ".java";
   }
-
 };
 
 } // namespace tensorflow

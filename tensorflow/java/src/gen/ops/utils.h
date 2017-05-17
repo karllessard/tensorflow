@@ -22,32 +22,14 @@ static std::string __reserved_classes[] = {
   "Shape"
 }; // TODO add more
 
-
-inline string FromUnderscoreToOtherCase(const std::string& str, bool startWithCap) {
-  std::string result;
-  const char joiner = '_';
-  std::size_t i = 0;
-  bool cap = startWithCap;
-  while (i < str.size()) {
-    const char c = str[i++];
-    if (c == joiner) {
-      cap = true;
-    } else if (cap) {
-      result += toupper(c);
-      cap = false;
-    } else {
-      result += c;
-    }
-  }
-  return result;
-}
-
 }
 
 inline std::string GetLastPath(const std::string& fname) {
   auto pos = fname.rfind("/");
   return fname.substr(pos + 1);
 }
+
+std::string FromUnderscoreToOtherCase(const std::string& str, bool startWithCap);
 
 inline string FromUnderscoreToPascalCase(const std::string& str) {
   return FromUnderscoreToOtherCase(str, true);
@@ -77,15 +59,7 @@ inline std::string ProtectReservedClasses(const std::string& str, const std::str
   return str;
 }
 
-inline string ReplaceAll(const string& in, const string& find, const string& replace) {
-  string copy(in);
-  size_t findPos;
-  while(string::npos != (findPos = in.find(find, findPos))) {
-    copy.replace(findPos, find.length(), replace);
-    findPos += replace.length();
-  }
-  return copy;
-}
+std::string EscapeDoc(const std::string& src, int indent);
 
 } /* namespace tensorflow */
 

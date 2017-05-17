@@ -30,7 +30,6 @@ private:
   void WriteOps(const OpList& ops);
   void WriteOp(const OpDef& op, Template::Params& params);
   bool ImportType(const Type& type, Template::Params& params);
-  std::string EscapeDoc(const std::string& src, int indent);
 
   inline string ToFileName(string base_name) {
     return file_path + base_name + ".java";

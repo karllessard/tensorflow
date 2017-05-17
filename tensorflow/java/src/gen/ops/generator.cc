@@ -153,34 +153,4 @@ bool OpGenerator::ImportType(const Type& type, Template::Params& params) {
   return false;
 }
 
-string OpGenerator::EscapeDoc(const string& doc, int indent) {
-  string javadoc;
-  javadoc.reserve(doc.length());
-  string newline = "\n" + string(indent, ' ') + " * ";
-
-  for (const char& c : doc) {
-    switch (c) {
-      case '\n':
-        javadoc.append(newline);
-        break;
-      case '`':
-        // skip
-        break;
-      case '\'':
-        // skip
-        break;
-      case '*':
-        javadoc.push_back('-');
-        break;
-      default:
-        javadoc.push_back(c);
-        break;
-    }
-  }
-  if (!javadoc.empty() && javadoc.at(javadoc.length() - 1) != '.') {
-    javadoc.push_back('.');
-  }
-  return javadoc;
-}
-
 } // namespace tensorflow

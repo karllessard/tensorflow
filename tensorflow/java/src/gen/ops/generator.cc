@@ -17,7 +17,7 @@ namespace tensorflow {
 OpGenerator::OpGenerator(const string& lib_fname) :
   lib_name(GetLastPath(lib_fname)),
   pkg_name(lib_name.substr(0, lib_name.rfind("_op"))),
-  file_path(lib_name + "/org/tensorflow/ops/" + pkg_name + "/") {}
+  file_path(lib_name + "/src/main/java/org/tensorflow/ops/" + pkg_name + "/") {}
 
 OpGenerator::~OpGenerator() {}
 

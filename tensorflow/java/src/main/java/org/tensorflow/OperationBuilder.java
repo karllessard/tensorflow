@@ -16,6 +16,7 @@ limitations under the License.
 package org.tensorflow;
 
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 
 /**
  * A builder for {@link Operation}s in a {@link Graph}.
@@ -63,7 +64,7 @@ public final class OperationBuilder {
     }
   }
 
-  public OperationBuilder addInput(Output input) {
+  public OperationBuilder addInput(Input input) {
     Graph.Reference r = graph.ref();
     try {
       addInput(unsafeNativeHandle, input.op().getUnsafeNativeHandle(), input.index());
@@ -73,7 +74,7 @@ public final class OperationBuilder {
     return this;
   }
 
-  public OperationBuilder addInputList(Output[] inputs) {
+  public OperationBuilder addInputList(Input[] inputs) {
     Graph.Reference r = graph.ref();
     try {
       long[] opHandles = new long[inputs.length];

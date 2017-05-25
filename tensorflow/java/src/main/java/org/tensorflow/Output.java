@@ -21,7 +21,7 @@ package org.tensorflow;
  * <p>An Output is a symbolic handle to a tensor. The value of the Tensor is computed by executing
  * the {@link Operation} in a {@link Session}.
  */
-public final class Output {
+public final class Output implements InputSource {
 
   /** Handle to the idx-th output of the Operation {@code op}. */
   public Output(Operation op, int idx) {
@@ -47,6 +47,11 @@ public final class Output {
   /** Returns the DataType of the tensor referred to by this Output. */
   public DataType dataType() {
     return operation.dtype(index);
+  }
+
+  @Override
+  public Output input() {
+    return this;
   }
 
   private final Operation operation;

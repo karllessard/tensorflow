@@ -22,11 +22,11 @@ package org.tensorflow;
  * InputListSource#inputs()} method.
  *
  * <p>Beware that even if it is somewhat confusing, an input tensor is always represented by an
- * instance of {@link Output}. This interface is only an abstraction of the object passing such
- * instance as an operand.
+ * instance of {@link Output}. This interface is only an abstraction of the object passing the list
+ * of tensors as an operand.
  */
 public interface InputListSource {
 
-  /** Returns an array of symbolic links of tensors to be passed in input. */
+  /** Returns the array of tensors to be passed in input. */
   Output[] inputs();
 }

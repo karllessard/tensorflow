@@ -23,9 +23,10 @@ package org.tensorflow;
  *
  * <pre>{@code
  * OutputList outputList = Ops.array().split(...).output();
+ * Output firstPiece = outputList.at(0);
  * ...
  * Ops.array().concat(outputList, ...);
- * }
+ * }</pre>
  */
 public class OutputList implements InputListSource {
 
@@ -76,7 +77,7 @@ public class OutputList implements InputListSource {
 
   @Override
   public Output[] inputs() {
-    return toArray();
+    return array;
   }
 
   // Private constructor.

@@ -22,8 +22,8 @@ package org.tensorflow;
  * method.
  *
  * <p>Beware that even if it is somewhat confusing, an input tensor is always represented by an
- * instance of {@link Output}. This interface is only an abstraction of the object passing such
- * instance as an operand.
+ * instance of {@link Output}. This interface is only an abstraction of the object passing the
+ * tensor as an operand.
  */
 public interface InputSource {
 

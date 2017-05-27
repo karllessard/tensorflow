@@ -386,7 +386,7 @@ def sign(x, name=None):
     A `Tensor` or `SparseTensor`, respectively. Has the same type as `x`.
 
   @compatibility(numpy)
-  Equivalent to numpy.sign except for the behaviour for input values of NaN.
+  Equivalent to numpy.sign except for the behavior for input values of NaN.
   @end_compatibility
   """
   with ops.name_scope(name, "Sign", [x]) as name:
@@ -1082,8 +1082,6 @@ _OverrideBinaryOperatorHelper(_mul_dispatch, "mul")
 _OverrideBinaryOperatorHelper(_div_python2, "div")
 _OverrideBinaryOperatorHelper(_truediv_python3, "truediv")
 _OverrideBinaryOperatorHelper(floordiv, "floordiv")
-# TODO(aselle): Switch mod to floor_mod when ready
-# _OverrideBinaryOperatorHelper(gen_math_ops.floor_mod, "mod")
 _OverrideBinaryOperatorHelper(gen_math_ops._floor_mod, "mod")
 _OverrideBinaryOperatorHelper(pow, "pow")
 

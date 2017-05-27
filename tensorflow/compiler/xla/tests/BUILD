@@ -200,11 +200,13 @@ cc_library(
         "//tensorflow/compiler/xla/service:device_memory_allocator",
         "//tensorflow/compiler/xla/service:local_service",
         "//tensorflow/compiler/xla/service:platform_util",
+        "//tensorflow/compiler/xla/service:pool",
         "//tensorflow/compiler/xla/service:shaped_buffer",
         "//tensorflow/compiler/xla/service:transfer_manager",
         "//tensorflow/compiler/xla/tests:client_library_test_base",
         "//tensorflow/core:lib",
         "//tensorflow/core:stream_executor_no_cuda",
+        "//third_party/eigen3",
     ],
 )
 
@@ -1241,27 +1243,6 @@ xla_test(
 )
 
 xla_test(
-    name = "inprocess_service_test",
-    srcs = ["inprocess_service_test.cc"],
-    deps = [
-        "//tensorflow/compiler/xla:array2d",
-        "//tensorflow/compiler/xla:shape_util",
-        "//tensorflow/compiler/xla:statusor",
-        "//tensorflow/compiler/xla:test_helpers",
-        "//tensorflow/compiler/xla:xla_data_proto",
-        "//tensorflow/compiler/xla/client:computation",
-        "//tensorflow/compiler/xla/client:computation_builder",
-        "//tensorflow/compiler/xla/client:global_data",
-        "//tensorflow/compiler/xla/client:local_client",
-        "//tensorflow/compiler/xla/legacy_flags:cpu_compiler_flags",
-        "//tensorflow/compiler/xla/tests:client_library_test_base",
-        "//tensorflow/compiler/xla/tests:literal_test_util",
-        "//tensorflow/core:lib",
-        "//tensorflow/core:test",
-    ],
-)
-
-xla_test(
     name = "replay_test",
     srcs = ["replay_test.cc"],
     deps = [
@@ -1362,6 +1343,7 @@ cc_test(
         "//tensorflow/compiler/xla/client:computation_builder",
         "//tensorflow/compiler/xla/service:computation_tracker",
         "//tensorflow/compiler/xla/service:local_service",
+        "//tensorflow/core:lib",
         "//tensorflow/core:test_main",
     ],
 )

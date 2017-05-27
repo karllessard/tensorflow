@@ -236,6 +236,15 @@ class SaverTest(test.TestCase):
       self.assertEqual(b"k1", v2.keys().eval())
       self.assertEqual(30.0, v2.values().eval())
 
+  def testFilenameTensor(self):
+    v0 = variables.Variable(0, name="v0")
+    filename = b"somerandomfilename"
+    save = saver_module.Saver({"v0": v0}, filename=filename)
+    with self.test_session() as sess:
+      tensor = sess.graph.get_tensor_by_name(
+          save.saver_def.filename_tensor_name)
+      self.assertEqual(sess.run(tensor), filename)
+
   def testInvalidPath(self):
     v0 = variables.Variable(0, name="v0")
     for ver in (saver_pb2.SaverDef.V1, saver_pb2.SaverDef.V2):
@@ -2087,6 +2096,18 @@ class ScopedGraphTest(test.TestCase):
         biases3 = variables.Variable(array_ops.zeros([10]), name="biases")
         logits = math_ops.matmul(hidden2, weights3) + biases3
         ops_lib.add_to_collection("logits", logits)
+
+        # Adds user_defined proto in three formats: string, bytes and Any.
+        # Any proto should just pass through.
+        queue_runner = queue_runner_pb2.QueueRunnerDef(queue_name="test_queue")
+        ops_lib.add_to_collection("user_defined_string_collection",
+                                  str(queue_runner))
+        ops_lib.add_to_collection("user_defined_bytes_collection",
+                                  queue_runner.SerializeToString())
+        any_buf = Any()
+        any_buf.Pack(queue_runner)
+        ops_lib.add_to_collection("user_defined_any_collection", any_buf)
+
       _, var_list = meta_graph.export_scoped_meta_graph(
           filename=os.path.join(test_dir, exported_filename),
           graph=ops_lib.get_default_graph(),

@@ -78,7 +78,7 @@ string Node::DebugString() const {
   } else {
     strings::StrAppend(&ret, " op device:");
     strings::StrAppend(&ret, "{", assigned_device_name_, "}");
-    strings::StrAppend(&ret, " def:{", SummarizeNodeDef(def()), "}}");
+    strings::StrAppend(&ret, " def:{", SummarizeNode(*this), "}}");
   }
   return ret;
 }
@@ -304,6 +304,17 @@ Node* Graph::CopyNode(Node* node) {
   props->Ref();
   Node* copy = AllocateNode(props, node);
   copy->set_assigned_device_name(node->assigned_device_name());
+
+  // Since the OpDef of a function may be owned by the Graph that owns 'node',
+  // relookup the OpDef in the target graph. If it differs, then clone the
+  // node properties with the updated OpDef.
+  const OpDef* op_def;
+  TF_CHECK_OK(ops_.LookUpOpDef(node->type_string(), &op_def));
+  if (op_def != props->op_def_) {
+    copy->MaybeCopyOnWrite();
+    copy->props_->op_def_ = op_def;
+  }
+
   return copy;
 }
 
@@ -463,7 +474,7 @@ void Graph::ToGraphDefSubRange(GraphDef* graph_def, int from_node_id) const {
     for (size_t i = 0; i < inputs.size(); ++i) {
       const Edge* edge = inputs[i];
       if (edge == nullptr) {
-        node_def->add_input(node->def().input(i));
+        node_def->add_input(node->requested_inputs()[i]);
       } else {
         const Node* src = edge->src();
         if (!src->IsOp()) continue;
@@ -475,12 +486,6 @@ void Graph::ToGraphDefSubRange(GraphDef* graph_def, int from_node_id) const {
 
 string Graph::NewName(StringPiece prefix) {
   return strings::StrCat(prefix, "/_", name_counter_++);
-}
-
-gtl::iterator_range<NodeIter> Graph::nodes() const {
-  // Note that NodeId 0 is always valid since we don't let the source
-  // node be removed from the graph.
-  return gtl::make_range(NodeIter(this, 0), NodeIter(this, num_node_ids()));
 }
 
 bool Graph::IsValidNode(Node* node) const {

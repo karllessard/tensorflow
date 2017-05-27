@@ -31,8 +31,6 @@ from tensorflow.core.framework import attr_value_pb2
 from tensorflow.core.framework import function_pb2
 from tensorflow.core.framework import graph_pb2
 from tensorflow.core.framework import node_def_pb2
-from tensorflow.core.framework import tensor_shape_pb2
-from tensorflow.core.framework import types_pb2
 from tensorflow.core.framework import versions_pb2
 from tensorflow.python import pywrap_tensorflow as c_api
 from tensorflow.python.framework import device as pydev
@@ -323,8 +321,8 @@ class Tensor(_TensorLike):
     self._consumers = []
 
     # Attributes used for C++ shape inference. Not inspected, only forwarded.
-    self._handle_shape = tensor_shape_pb2.TensorShapeProto()
-    self._handle_dtype = types_pb2.DT_INVALID
+    # If set, will be a HandleData object from cpp_shape_inference.proto.
+    self._handle_data = None
 
   @property
   def op(self):
@@ -1293,11 +1291,11 @@ class Operation(object):
         grouped_inputs = self._inputs
 
       self._c_op = self._create_c_op(self._graph, self._node_def,
-                                     grouped_inputs)
+                                     grouped_inputs, self._control_inputs)
     else:
       self._c_op = None
 
-  def _create_c_op(self, graph, node_def, inputs):
+  def _create_c_op(self, graph, node_def, inputs, control_inputs):
     """Creates a TF_Operation.
 
     Arguments:
@@ -1307,22 +1305,27 @@ class Operation(object):
         `Tensor`s (corresponding to sequence inputs, e.g. "int64 * N",
         "list(int64)"). The length of the list should be equal to the number of
         inputs specified by this operation's op def.
+      control_inputs: A list of `Operation`s to set as control dependencies.
 
     Returns:
       A wrapped TF_Operation*.
     """
     # pylint: disable=protected-access
-    op_desc = c_api.TF_NewOperation(graph._c_graph.g,
-                                    compat.as_str(node_def.op),
+    op_desc = c_api.TF_NewOperation(graph._c_graph, compat.as_str(node_def.op),
                                     compat.as_str(node_def.name))
-
+    # Add inputs
     for op_input in inputs:
       if isinstance(op_input, (list, tuple)):
         c_api.TF_AddInputList(op_desc, [t._as_tf_output() for t in op_input])
       else:
         c_api.TF_AddInput(op_desc, op_input._as_tf_output())
+
+    # Add control inputs
+    for control_input in control_inputs:
+      c_api.TF_AddControlInput(op_desc, control_input._c_op)
     # pylint: enable=protected-access
 
+    # Add attrs
     for name, attr_value in node_def.attr.items():
       serialized = attr_value.SerializeToString()
       # TODO(skyewm): this creates and deletes a new TF_Status for every attr.
@@ -1872,12 +1875,10 @@ def set_shapes_for_outputs(op):
     # Returned by call_cpp_shape_fn
     shapes_dict = shapes
     shapes = shapes_dict["shapes"]
-    handle_shapes = shapes_dict["handle_shapes"]
-    handle_dtypes = shapes_dict["handle_dtypes"]
-    for output, handle_shape, handle_dtype in zip(op.outputs, handle_shapes, handle_dtypes):
+    handle_datas = shapes_dict["handle_data"]
+    for output, handle_data in zip(op.outputs, handle_datas):
       # pylint: disable=protected-access
-      output._handle_shape = handle_shape
-      output._handle_dtype = handle_dtype
+      output._handle_data = handle_data
       # pylint: enable=protected-access
 
   if len(op.outputs) != len(shapes):
@@ -2039,10 +2040,13 @@ def _name_from_scope_name(name):
 class _ScopedTF_Graph(object):
 
   def __init__(self):
-    self.g = c_api.TF_NewGraph()
+    self.graph = c_api.TF_NewGraph()
 
   def __del__(self):
-    c_api.TF_DeleteGraph(self.g)
+    # Note: when we're destructing the global context (i.e when the process is
+    # terminating) we can have already deleted other modules.
+    if c_api.TF_DeleteGraph is not None:
+      c_api.TF_DeleteGraph(self.graph)
 
 
 class Graph(object):
@@ -2161,9 +2165,9 @@ class Graph(object):
     # TODO(skyewm): fold as much of the above as possible into the C
     # implementation
     if _USE_C_API:
-      self._c_graph = _ScopedTF_Graph()
+      self._scoped_c_graph = _ScopedTF_Graph()
     else:
-      self._c_graph = None
+      self._scoped_c_graph = None
 
   def _check_not_finalized(self):
     """Check if the graph is finalized.
@@ -2199,6 +2203,12 @@ class Graph(object):
       self._nodes_by_name[op.name] = op
       self._version = max(self._version, op._id)
       # pylint: enable=protected-access
+
+  @property
+  def _c_graph(self):
+    if self._scoped_c_graph:
+      return self._scoped_c_graph.graph
+    return None
 
   @property
   def version(self):
@@ -2771,6 +2781,11 @@ class Graph(object):
       A context manager for using this graph as the default graph.
     """
     return _default_graph_stack.get_controller(self)
+
+  @property
+  def collections(self):
+    """Returns the names of the collections known to this graph."""
+    return list(self._collections)
 
   def add_to_collection(self, name, value):
     """Stores `value` in the collection with the given `name`.
@@ -4367,10 +4382,15 @@ def strip_name_scope(name, export_scope):
     is None.
   """
   if export_scope:
-    # Strips export_scope/, export_scope///,
-    # ^export_scope/, loc:@export_scope/.
-    str_to_replace = r"([\^]|loc:@|^)" + export_scope + r"[\/]+(.*)"
-    return re.sub(str_to_replace, r"\1\2", compat.as_str(name), count=1)
+    try:
+      # Strips export_scope/, export_scope///,
+      # ^export_scope/, loc:@export_scope/.
+      str_to_replace = r"([\^]|loc:@|^)" + export_scope + r"[\/]+(.*)"
+      return re.sub(str_to_replace, r"\1\2", compat.as_str(name), count=1)
+    except TypeError as e:
+      # If the name is not of a type we can process, simply return it.
+      logging.warning(e)
+      return name
   else:
     return name
 
@@ -4387,9 +4407,14 @@ def prepend_name_scope(name, import_scope):
     is None.
   """
   if import_scope:
-    str_to_replace = r"([\^]|loc:@|^)(.*)"
-    return re.sub(str_to_replace, r"\1" + import_scope + r"/\2",
-                  compat.as_str(name))
+    try:
+      str_to_replace = r"([\^]|loc:@|^)(.*)"
+      return re.sub(str_to_replace, r"\1" + import_scope + r"/\2",
+                    compat.as_str(name))
+    except TypeError as e:
+      # If the name is not of a type we can process, simply return it.
+      logging.warning(e)
+      return name
   else:
     return name
 

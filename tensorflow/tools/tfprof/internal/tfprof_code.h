@@ -29,7 +29,8 @@ limitations under the License.
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/tools/tfprof/internal/tfprof_node.h"
 #include "tensorflow/tools/tfprof/internal/tfprof_options.h"
-#include "tensorflow/tools/tfprof/internal/tfprof_show_code.h"
+#include "tensorflow/tools/tfprof/internal/tfprof_show_multi.h"
+#include "tensorflow/tools/tfprof/internal/tfprof_timeline.h"
 #include "tensorflow/tools/tfprof/internal/tfprof_utils.h"
 #include "tensorflow/tools/tfprof/tfprof_log.pb.h"
 #include "tensorflow/tools/tfprof/tfprof_output.pb.h"
@@ -37,23 +38,7 @@ limitations under the License.
 namespace tensorflow {
 namespace tfprof {
 
-class CodeNode : public ShowCodeNode {
- public:
-  explicit CodeNode(const TFCodeNode* node) : ShowCodeNode(node) {}
-  ~CodeNode() override {}
-
-  void AggregateTotalStats(CodeNode* node) {
-    ShowCodeNode::AggregateTotalStats(node);
-  }
-
-  void AddSelfToTotalStats() { ShowCodeNode::AddSelfToTotalStats(); }
-
-  void ResetTotalStats() { ShowCodeNode::ResetTotalStats(); }
-
-  std::vector<CodeNode*> children;
-};
-
-class TFCode : public TFShowCode {
+class TFCode : public TFMultiShow {
  public:
   explicit TFCode() : code_root_(nullptr), trace_root_(nullptr) {}
   ~TFCode() override {}
@@ -63,9 +48,10 @@ class TFCode : public TFShowCode {
   void Build() override;
 
  private:
-  CodeNode* BuildCodeNodes(TFCodeNode* root);
+  CodeNode* BuildCodeNodes(TFMultiGraphNode* root);
 
-  const ShowCodeNode* ShowInternal(const Options& opts) override;
+  const ShowMultiNode* ShowInternal(const Options& opts,
+                                    Timeline* timeline) override;
 
   std::vector<CodeNode*> SearchRoot(std::vector<CodeNode*> roots,
                                     const std::vector<string>& regexes);
@@ -74,12 +60,18 @@ class TFCode : public TFShowCode {
                                     const Options& opts, int depth,
                                     int last_ident);
 
-  void Account(const std::vector<CodeNode*>& roots, const Options& opts);
+  std::vector<CodeNode*> Account(const std::vector<CodeNode*>& roots,
+                                 const Options& opts);
 
+  void Format(const std::vector<CodeNode*> roots, string* display_str,
+              TFMultiGraphNodeProto* proto);
+
+  string FormatNode(CodeNode* node, const Options& opts, int64 indent);
+
+  std::unique_ptr<CodeNode> root_;
   CodeNode* code_root_;
-  std::unique_ptr<TFCodeNode> trace_root_;
-  std::unique_ptr<TFCodeNode> tfprof_trace_root_;
-  std::unique_ptr<CodeNode> tfprof_code_root_;
+  std::unique_ptr<TFMultiGraphNode> trace_root_;
+  std::unique_ptr<TFMultiGraphNode> tfprof_trace_root_;
   std::set<std::unique_ptr<CodeNode>> code_nodes_;
 };
 }  // namespace tfprof

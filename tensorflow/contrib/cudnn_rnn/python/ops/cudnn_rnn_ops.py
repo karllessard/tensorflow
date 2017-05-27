@@ -141,7 +141,7 @@ _cudnn_rnn_common_doc_string = """
     * Once a while, the user saves the parameter buffer into model checkpoints
         with Saver.save().
     * When restoring, the user creates a RNNParamsSaveable object and uses
-      Saver.restore() to restore the paramter buffer from the canonical format
+      Saver.restore() to restore the parameter buffer from the canonical format
       to a user-defined format, as well as to restore other savable objects
       in the checkpoint file.
 """
@@ -160,7 +160,7 @@ class _CudnnRNN(object):
                num_layers,
                num_units,
                input_size,
-               input_mode="auto_select",
+               input_mode="linear_input",
                direction="unidirectional",
                dropout=0.,
                seed=0):
@@ -174,8 +174,10 @@ class _CudnnRNN(object):
       input_size: the size of the input, it could be different from the
           num_units.
       input_mode: indicate whether there is a linear projection between the
-          input and The actual computation before the first layer. It could be
-          'skip_input', 'linear_input' or 'auto_select'.
+          input and the actual computation before the first layer. It could be
+          'linear_input', 'skip_input' or 'auto_select'.
+          'linear_input' (default) always applies a linear projection of input
+          onto RNN hidden state. (standard RNN behavior).
           'skip_input' is only allowed when input_size == num_units;
           'auto_select' implies 'skip_input' when input_size == num_units;
           otherwise, it implies 'linear_input'.

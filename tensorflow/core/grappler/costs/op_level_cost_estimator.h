@@ -32,11 +32,11 @@ class OpLevelCostEstimator {
   OpLevelCostEstimator();
   virtual ~OpLevelCostEstimator() {}
 
-  Costs PredictCosts(const OpInfo& op_features) const;
+  virtual Costs PredictCosts(const OpInfo& op_features) const;
 
  protected:
   // Returns an estimate of device performance (in billions of operations
-  // executed per second) and memory bandwith (in GigaBytes/second) for the
+  // executed per second) and memory bandwidth (in GigaBytes/second) for the
   // specified device.
   virtual std::pair<double, double> GetDeviceInfo(
       const DeviceProperties& device) const;
@@ -132,7 +132,7 @@ class OpLevelCostEstimator {
       const TensorShapeProto& original_filter_shape, const OpInfo& op_features,
       bool* found_unknown_shapes);
 
- private:
+ protected:
   typedef std::function<Costs(const OpInfo& op_feature)> CostImpl;
   std::map<string, CostImpl> device_cost_impl_;
 };

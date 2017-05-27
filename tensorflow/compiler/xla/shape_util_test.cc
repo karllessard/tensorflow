@@ -20,6 +20,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/test_helpers.h"
 #include "tensorflow/compiler/xla/types.h"
 #include "tensorflow/compiler/xla/util.h"
+#include "tensorflow/compiler/xla/xla_data.pb.h"
 
 namespace xla {
 namespace {
@@ -445,6 +446,34 @@ TEST(ShapeUtilTest, InsertedOrDeleted1SizedDimensions) {
       ShapeUtil::InsertedOrDeleted1SizedDimensions(shape0, shape2)));
 }
 
+TEST(ShapeUtilTest, ForEachIndex) {
+  struct ShapeDimensionAndNumberInvocations {
+    std::vector<int64> dimensions;
+    int invocations;
+  } test_data[] = {
+      {{}, 1},     {{0}, 0},      {{16}, 16},          {{3, 0}, 0},
+      {{0, 2}, 0}, {{4, 16}, 64}, {{6, 11, 17}, 1122}, {{6, 11, 5, 17}, 5610},
+  };
+
+  for (const auto& data : test_data) {
+    Shape shape = ShapeUtil::MakeShape(F32, data.dimensions);
+    // Increments at every invocation.
+    int invocations = 0;
+    auto increment_func = [&invocations](const std::vector<int64>& indexes) {
+      invocations++;
+      return true;
+    };
+
+    std::vector<int64> zero_base(data.dimensions.size(), 0);
+    std::vector<int64> step(data.dimensions.size(), 1);
+
+    ShapeUtil::ForEachIndex(shape, zero_base, data.dimensions, step,
+                            increment_func);
+
+    EXPECT_EQ(invocations, data.invocations);
+  }
+}
+
 TEST(ShapeUtilTest, DimensionsUnmodifiedByReshape_1x1x1x1_to_1x1x1) {
   // All output dimensions should be unmodified. One of the input dimensions is
   // modified because the input rank is larger by one.
@@ -520,6 +549,59 @@ TEST(AlgebraicSimplifierTest, ReshapeIsBitcast_3x2x2_6x2_Dim0IsMostMinor) {
   EXPECT_FALSE(ShapeUtil::ReshapeIsBitcast(
       ShapeUtil::MakeShapeWithLayout(F32, {3, 2, 2}, {0, 1, 2}),
       ShapeUtil::MakeShapeWithLayout(F32, {6, 2}, {0, 1})));
+}
+
+TEST(AlignmentTest, AlignLayoutsWithoutTrivialDimensions) {
+  Shape input = ShapeUtil::MakeShapeWithLayout(xla::F32, {3, 8, 5, 7, 11},
+                                               {3, 2, 1, 0, 4});
+  auto aligned_shape = ShapeUtil::AlignLayouts(
+      input, ShapeUtil::MakeShape(xla::F32, {4, 3, 2, 7, 5, 11}));
+  EXPECT_TRUE(aligned_shape);
+  EXPECT_THAT(aligned_shape.value().layout().minor_to_major(),
+              ElementsAre(4, 3, 2, 1, 0, 5));
+  EXPECT_TRUE(ShapeUtil::ReshapeIsBitcast(input, aligned_shape.value()));
+
+  aligned_shape = ShapeUtil::AlignLayouts(
+      input, ShapeUtil::MakeShape(xla::F32, {3, 2, 4, 35, 11}));
+  EXPECT_TRUE(aligned_shape);
+  EXPECT_THAT(aligned_shape.value().layout().minor_to_major(),
+              ElementsAre(3, 2, 1, 0, 4));
+  EXPECT_TRUE(ShapeUtil::ReshapeIsBitcast(input, aligned_shape.value()));
+}
+
+TEST(AlignmentTest, AlignLayoutsWithTrivialDimensions) {
+  Shape input =
+      ShapeUtil::MakeShapeWithLayout(xla::F32, {1, 3, 8, 1, 5, 7, 1, 11, 1, 1},
+                                     {5, 0, 4, 2, 1, 3, 6, 7, 9, 8});
+  auto aligned_shape = ShapeUtil::AlignLayouts(
+      input, ShapeUtil::MakeShape(xla::F32, {1, 4, 1, 3, 2, 7, 5, 11, 1}));
+  EXPECT_TRUE(aligned_shape);
+  EXPECT_THAT(aligned_shape.value().layout().minor_to_major(),
+              ElementsAre(6, 5, 4, 3, 1, 7, 0, 2, 8));
+  EXPECT_TRUE(ShapeUtil::ReshapeIsBitcast(input, aligned_shape.value()));
+}
+
+// A test case where the consecutive elements of the input shape belonging to
+// the same layout part are not in descending order.
+TEST(AlignmentTest, AlignLayoutsWithoutTrivialDimensionsWrongInputLayout) {
+  // Same physical layout as in AlignLayoutsWithoutTrivialDimensions, except
+  // that the first two dimension numbers are exchanged.
+  Shape input = ShapeUtil::MakeShapeWithLayout(xla::F32, {3, 8, 5, 7, 11},
+                                               {2, 3, 1, 0, 4});
+  auto aligned_shape = ShapeUtil::AlignLayouts(
+      input, ShapeUtil::MakeShape(xla::F32, {4, 3, 2, 7, 5, 11}));
+  EXPECT_FALSE(aligned_shape);
+}
+
+// A test case where the physical layout of the input shape does not place all
+// dimensions that belong to the same alignment part consecutively.
+TEST(AlignmentTest,
+     AlignLayoutsWithoutTrivialDimensionsNonConsecutiveAlignmentPart) {
+  Shape input = ShapeUtil::MakeShapeWithLayout(xla::F32, {3, 8, 5, 7, 11},
+                                               {3, 2, 1, 0, 4});
+  auto aligned_shape = ShapeUtil::AlignLayouts(
+      input, ShapeUtil::MakeShape(xla::F32, {4, 3, 2, 5, 77}));
+  EXPECT_FALSE(aligned_shape);
 }
 
 }  // namespace

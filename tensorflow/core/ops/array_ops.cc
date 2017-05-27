@@ -1004,7 +1004,7 @@ REGISTER_OP("Reverse")
     .Output("output: T")
     .Attr(
         "T: {uint8, int8, int32, int64, bool, half, float, double, complex64, "
-        "complex128}")
+        "complex128, string}")
     .SetShapeFn([](InferenceContext* c) {
       ShapeHandle input = c->input(0);
       ShapeHandle dims;
@@ -1081,7 +1081,7 @@ REGISTER_OP("ReverseV2")
     .Attr("Tidx: {int32, int64} = DT_INT32")
     .Attr(
         "T: {uint8, int8, int32, int64, bool, half, float, double, complex64, "
-        "complex128}")
+        "complex128, string}")
     .SetShapeFn([](InferenceContext* c) {
       ShapeHandle input = c->input(0);
       ShapeHandle axis;
@@ -1534,8 +1534,10 @@ REGISTER_OP("Identity")
     .Attr("T: type")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
-      c->set_output_handle_dtype(0, c->input_handle_dtype(0));
-      c->set_output_handle_shape(0, c->input_handle_shape(0));
+      auto* handle_data = c->input_handle_shapes_and_types(0);
+      if (handle_data != nullptr) {
+        c->set_output_handle_shapes_and_types(0, *handle_data);
+      }
       return Status::OK();
     })
     .Doc(R"Doc(
@@ -1551,8 +1553,10 @@ REGISTER_OP("_MklIdentity")
     .Attr("T: type")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
-      c->set_output_handle_dtype(0, c->input_handle_dtype(0));
-      c->set_output_handle_shape(0, c->input_handle_shape(0));
+      auto* handle_data = c->input_handle_shapes_and_types(0);
+      if (handle_data != nullptr) {
+        c->set_output_handle_shapes_and_types(0, *handle_data);
+      }
       return Status::OK();
     })
     .Doc(R"Doc( Mkl implementation of IdentityOp
@@ -2484,6 +2488,32 @@ shape must be exactly the shape produced by the slice of `ref`.
 // TODO(aselle): Fix this documentation once StridedSliceAssign Supports
 // broadcasting.
 // --------------------------------------------------------------------------
+
+REGISTER_OP("ResourceStridedSliceAssign")
+    .Input("ref: resource")
+    .Input("begin: Index")
+    .Input("end: Index")
+    .Input("strides: Index")
+    .Input("value: T")
+    .Attr("T: type")
+    .Attr("Index: {int32, int64}")
+    .Attr("begin_mask: int = 0")
+    .Attr("end_mask: int = 0")
+    .Attr("ellipsis_mask: int = 0")
+    .Attr("new_axis_mask: int = 0")
+    .Attr("shrink_axis_mask: int = 0")
+    .SetShapeFn(shape_inference::NoOutputs)
+    .Doc(R"doc(
+Assign `value` to the sliced l-value reference of `ref`.
+
+The values of `value` are assigned to the positions in the variable
+`ref` that are selected by the slice parameters. The slice parameters
+`begin, `end`, `strides`, etc. work exactly as in `StridedSlice`.
+
+NOTE this op currently does not support broadcasting and so `value`'s
+shape must be exactly the shape produced by the slice of `ref`.
+
+)doc");
 
 REGISTER_OP("Tile")
     .Input("input: T")

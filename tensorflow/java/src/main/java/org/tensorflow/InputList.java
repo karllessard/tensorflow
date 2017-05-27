@@ -16,17 +16,17 @@ limitations under the License.
 package org.tensorflow;
 
 /**
- * Any object that could provide a tensor in input to an operator.
+ * Any object that could provide a list of tensors in input to an operation.
  *
- * <p>The tensor could be retrieved as an {@link Output} by invoking the {@link InputSource#input()}
- * method.
+ * <p>The tensors to be passed in input are retrieved as an array of {@link Output} by invoking the
+ * {@link #asOutputs()} method.
  *
  * <p>Beware that even if it is somewhat confusing, an input tensor is always represented by an
- * instance of {@link Output}. This interface is only an abstraction of the object passing the
- * tensor as an operand.
+ * instance of {@link Output}. This interface is only an abstraction of the object passing the list
+ * of tensors as an operand.
  */
-public interface InputSource {
+public interface InputList {
 
-  /** Returns the symbolic link of tensor to be passed in input. */
-  Output input();
+  /** Returns the input tensors as an array of {@link Output}. */
+  Output[] asOutputs();
 }

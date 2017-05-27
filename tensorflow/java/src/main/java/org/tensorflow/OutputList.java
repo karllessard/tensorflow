@@ -16,10 +16,10 @@ limitations under the License.
 package org.tensorflow;
 
 /**
- * Holds a list of {@link Output} resulting from the output of an operator.
+ * Holds a list of {@link Output} resulting from the output of an operation.
  *
- * <p>By implementing {@link InputListSource}, this class is convenient to pass an array of output
- * tensors in input to another operator.
+ * <p>By extending {@link InputList}, this interface is convenient to pass an array of output
+ * tensors in input to another operation.
  *
  * <pre>{@code
  * OutputList outputList = Ops.array().split(...).output();
@@ -28,32 +28,10 @@ package org.tensorflow;
  * Ops.array().concat(outputList, ...);
  * }</pre>
  */
-public class OutputList implements InputListSource {
+public interface OutputList extends InputList {
 
-  /**
-   * Create an {@code OutputList} from the output of an operation.
-   *
-   * <p>The output must have a size > 1, where its first tensor is found at {@code op.output(start)}
-   * and the last is {@code op.output(start + op.outputListLength(name) - 1)}.
-   *
-   * <p>This factory method collects at once all tensors in the list and stores them into an array.
-   * This is preferred compared to an iterator since we do not want to repeat calls to the native
-   * library if the list is visited more than once.
-   *
-   * @param op operation returning the output
-   * @param start index of the first tensor of this output
-   * @param name name of the output
-   */
-  public static OutputList create(Operation op, int start, String name) {
-    int len = op.outputListLength(name);
-    int end = start + len;
-
-    Output[] array = new Output[len];
-    for (int i = start; i < end; i++) {
-      array[i - start] = op.output(i);
-    }
-    return new OutputList(array);
-  }
+  /** Returns the number of tensors in this list. */
+  int size();
 
   /**
    * Access the index-th {@link Output} in the list.
@@ -61,29 +39,5 @@ public class OutputList implements InputListSource {
    * @param index index of the {@link Output} in the list
    * @throws IndexOutOfBoundsException if index is out of list boundaries
    */
-  public Output at(int index) {
-    return array[index];
-  }
-
-  /** Returns the number of tensors in this list. */
-  public int size() {
-    return array.length;
-  }
-
-  /** Return the list of {@link Output} as an array. */
-  public Output[] toArray() {
-    return array;
-  }
-
-  @Override
-  public Output[] inputs() {
-    return array;
-  }
-
-  // Private constructor.
-  private OutputList(Output[] array) {
-    this.array = array;
-  }
-
-  private final Output[] array;
+  Output at(int index);
 }

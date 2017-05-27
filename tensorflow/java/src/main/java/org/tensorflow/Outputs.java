@@ -1,0 +1,103 @@
+/* Copyright 2017 The TensorFlow Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+package org.tensorflow;
+
+/**
+ * Factory class of operation output wrappers.
+ *
+ * <p>To be able to be passed as an input to an operation, the output of a previous operation should
+ * implement one of the wrapper interfaces that extends from {@link Input} or {@link InputList}.
+ *
+ * <p>Since {@link Output} class implements directly the {@link Input} interface, this wrapping is
+ * not required for operation that returns simple output tensors. But it will be required for
+ * outputs that handles more than one tensors or for those handling variables, for example.
+ */
+public final class Outputs {
+
+  /**
+   * Create an {@code OutputList} from the output of an operation.
+   *
+   * <p>The output must have a size > 1, where its first tensor is found at {@code op.output(start)}
+   * and the last is {@code op.output(start + op.outputListLength(name) - 1)}.
+   *
+   * <p>This factory method collects at once all tensors in the list and stores them into an array.
+   * This is preferred compared to an iterator since we do not want to repeat calls to the native
+   * library if the list is visited more than once.
+   *
+   * @param op operation returning the output
+   * @param start index of the first tensor of this output
+   * @param name name of the output
+   */
+  public static OutputList asOutputList(Operation op, int start, String name) {
+    int len = op.outputListLength(name);
+    int end = start + len;
+
+    final Output[] array = new Output[len];
+    for (int i = start; i < end; i++) {
+      array[i - start] = op.output(i);
+    }
+
+    return new OutputList() {
+
+      @Override
+      public Output[] asOutputs() {
+        return array;
+      }
+
+      @Override
+      public int size() {
+        return array.length;
+      }
+
+      @Override
+      public Output at(int index) {
+        return array[index];
+      }
+    };
+  }
+
+  public static VariableRef asVariableRef(final Output output) {
+
+    return new VariableRef() {
+
+      @Override
+      public Output asOutput() {
+        return output;
+      }
+    };
+  }
+
+  public static VariableRefList asVariableRefList(Operation op, int start, String name) {
+
+    final OutputList outputList = asOutputList(op, start, name);
+
+    return new VariableRefList() {
+
+      @Override
+      public Output[] asOutputs() {
+        return outputList.asOutputs();
+      }
+
+      @Override
+      public OutputList asOutputList() {
+        return outputList;
+      }
+    };
+  }
+
+  // disabled constructor
+  private Outputs() {}
+}

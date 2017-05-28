@@ -27,6 +27,44 @@ package org.tensorflow;
  */
 public interface InputList {
 
+  /**
+   * Entry point for accessing elements found in an {@code InputList}.
+   *
+   * <p>This is useful to access or iterate through the list of inputs without loosing their type,
+   * as it would do by only accessing the array of outputs returned by {@link
+   * InputList#asOutputs()}. For example:
+   *
+   * <pre>{@code
+   * VariableInputList list = ...;
+   * ops.training.applyGradientDescent(list.inputs().at(2), ...); // Takes a VariableInput in parameter
+   * }</pre>
+   *
+   * or
+   *
+   * <pre>{@code
+   * InputList list = ...;
+   * for (Input input : list.inputs()) {
+   *    ...
+   * }
+   * }</pre>
+   */
+  interface Accessor<T extends Input> extends Iterable<T> {
+
+    /** Returns the number of inputs in the list. */
+    int size();
+
+    /**
+     * Access the index-th input in the list.
+     *
+     * @param index index of the input in the list
+     * @throws IndexOutOfBoundsException if index is out of list boundaries
+     */
+    T at(int index);
+  }
+
   /** Returns the input tensors as an array of {@link Output}. */
   Output[] asOutputs();
+
+  /** Allows access to the inputs of this list. */
+  Accessor<? extends Input> inputs();
 }

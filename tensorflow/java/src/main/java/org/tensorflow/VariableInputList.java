@@ -16,20 +16,15 @@ limitations under the License.
 package org.tensorflow;
 
 /**
- * A reference to a variable tensor.
+ * A variant of {@link InputList} when the list of tensors in input to an operation are references
+ * to variables.
  *
  * <p>The principal goal of this interface is to enforce type strictness for operation that takes in
- * input a variable tensor. It is allowed to pass a variable tensor as a any other input tensor but
- * not the opposite.
- *
- * <pre>{@code
- * VariableRef var = ....;
- * ops.math.mean(var, ...); // will work
- * ops.training.applyGradientDescent(var, ...); // will work
- *
- * Input input = ...;
- * ops.math.mean(input, ...); // will work
- * ops.training.applyGradientDescent(input, ...); // won't work
- * }</pre>
+ * input a variable tensor. It is allowed to pass a list of variable tensors as any other list of
+ * input tensors but not the opposite.
  */
-public interface VariableRef extends Input {}
+public interface VariableInputList extends InputList {
+
+  @Override
+  Accessor<? extends VariableInput> inputs();
+}

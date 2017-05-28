@@ -16,7 +16,6 @@ limitations under the License.
 package org.tensorflow;
 
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 
 /**
  * A builder for {@link Operation}s in a {@link Graph}.

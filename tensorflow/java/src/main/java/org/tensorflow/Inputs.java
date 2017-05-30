@@ -89,7 +89,7 @@ public final class Inputs {
    * @return the output wrapped in a {@link VariableInput}
    */
   public static VariableInput variableInput(Operation op, int index) {
-    return () -> op.output(index);
+    return variableInput(op.output(index));
   }
 
   /**

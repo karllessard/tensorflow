@@ -138,6 +138,19 @@ java_test(
     ],
 )
 
+java_test(
+    name = "InputsTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/InputsTest.java"],
+    javacopts = JAVACOPTS,
+    test_class = "org.tensorflow.InputsTest",
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
+    ],
+)
+
 filegroup(
     name = "libtensorflow_jni",
     srcs = select({

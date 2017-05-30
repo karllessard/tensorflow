@@ -15,171 +15,136 @@ limitations under the License.
 
 package org.tensorflow;
 
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-/**
- * Factory class of input types.
- *
- * <p>To be able to be passed as an input to an operation, the output of a previous operation should
- * implement one of the wrapper interfaces that extends from {@link Input} or {@link InputList}.
- *
- * <p>Since {@link Output} class implements directly the {@link Input} interface, no wrapping is
- * required for operation that returns simple output tensors.
- */
+/** Factory class of input-related types and lists. */
 public final class Inputs {
 
   /**
-   * Create an {@link InputList} out of the output of an operation.
+   * Create a list of {@link Output} out of the output of an operation.
    *
-   * <p>The output must have a size > 1, where its first tensor is found at {@code op.output(start)}
-   * and the last is {@code op.output(start + op.outputListLength(name) - 1)}.
+   * <p>Since the {@link Output} class implements the {@link Input} interface, this list could be
+   * passed directly in input to an operation.
    *
-   * <p>This factory method fetches all tensors in the list and stores them into an array. This is
-   * preferred compared to an iterator since we do not want to repeat calls to the native library if
-   * the list is visited more than once.
+   * <pre>{@code
+   * List<Output> outputs = ops.array().unpack(...).output();
+   * ...
+   * ops.array().pack(outputs);
+   * }</pre>
+   *
+   * <p>The output must have a size >= 1, where its first tensor is found at {@code
+   * op.output(start)} and the last is {@code op.output(start + op.outputListLength(name) - 1)}.
+   *
+   * <p>References to {@link Output} in the list are fetched at creation-time and stored into an
+   * array to avoid repeated calls to the native library if the list is visited more than once.
    *
    * @param op operation to retrieve output from
    * @param start index of the first tensor of this output
    * @param length number of tensors in this output
+   * @return a read-only list of {@link Output}
    */
-  public static InputList inputList(Operation op, int start, int length) {
-    final Output[] outputs = fetchOutputs(op, start, length);
+  public static List<Output> outputList(Operation op, int start, int length) {
+    List<Output> outputs = new ArrayList<>(length);
+    int end = start + length;
 
-    return new InputList() {
+    for (int i = start; i < end; i++) {
+      outputs.add(op.output(i));
+    }
+    return Collections.unmodifiableList(outputs);
+  }
 
-      @Override
-      public Output[] asOutputs() {
-        return outputs;
-      }
-
-      @Override
-      public Accessor<? extends Input> inputs() {
-
-        return new Accessor<Input>() {
-
-          @Override
-          public Iterator<Input> iterator() {
-            return new InputListIterator<Input>(this);
-          }
-
-          @Override
-          public int size() {
-            return outputs.length;
-          }
-
-          @Override
-          public Input at(int index) {
-            return outputs[index];
-          }
-        };
-      }
-    };
+  /**
+   * Create a list of {@link Output} from a list of {@link Input}.
+   *
+   * <p>An {@link Input} is an interface wrapping an instance of {@link Output} allowing it to be
+   * passed in input to an operation. The purpose of this method is to bring back any iteration of
+   * {@link Input} to its {@link Output} nature.
+   *
+   * <pre>{@code
+   * List<VariableInput> inputs = ...
+   * List<Output> outputs = Inputs.outputList(inputs);
+   * }</pre>
+   *
+   * @param inputs an iteration of inputs
+   * @return a read-only list of {@link Output}
+   */
+  public static List<Output> outputList(Iterable<? extends Input> inputs) {
+    List<Output> outputs = new ArrayList<>();
+    for (Input input : inputs) {
+      outputs.add(input.asOutput());
+    }
+    return Collections.unmodifiableList(outputs);
   }
 
   /**
    * Create a {@link VariableInput} out of the output of an operation.
    *
    * <p>This factory method fetches the tensor found at the provided index in the output list of the
-   * operation and makes it available through {@link Input#asOutput()}.
+   * operation, which could be retrieved from {@link VariableInput#asOutput()}.
    *
    * @param op operation to retrieve output from
    * @param index index of the output
+   * @return the output wrapped in a {@link VariableInput}
    */
   public static VariableInput variableInput(Operation op, int index) {
-    return variableInput(op.output(index));
+    return () -> op.output(index);
   }
 
   /**
-   * Create an {@link VariableInputList} out of the output of an operation.
+   * Create an instance of {@link VariableInput} from a {@link Output}.
    *
-   * <p>This is identical to {@link #inputList} but it will return the list as an instance of {@link
-   * VariableInputList} instead of a {@link InputList} to enforce compile-time type checking for
-   * operations taking variable tensors in input.
+   * <p>This factory method support cases where the {@link Output} has been already fetched from a
+   * previous operation.
+   *
+   * @param output
+   * @return the output wrapped in a {@link VariableInput}
+   */
+  public static VariableInput variableInput(Output output) {
+    return () -> output;
+  }
+
+  /**
+   * Create a list of {@link VariableInput} out of the output of an operation.
+   *
+   * <p>This is identical to {@link #outputList(Operation, int, int)} but it wraps all {@link
+   * Output} in the list with {@link VariableInput} to enforce compile-time type checking for
+   * operations taking variable references in input.
    *
    * @param op operation to retrieve output from
    * @param start index of the first tensor of this output
    * @param length number of tensors in this output
+   * @return a read-only list of {@link VariableInput}
+   * @see {@link #outputList(Operation, int, int)}
    */
-  public static InputList variableInputList(Operation op, int start, int length) {
-    final Output[] outputs = fetchOutputs(op, start, length);
-
-    return new VariableInputList() {
-
-      @Override
-      public Output[] asOutputs() {
-        return outputs;
-      }
-
-      @Override
-      public Accessor<? extends VariableInput> inputs() {
-
-        return new Accessor<VariableInput>() {
-
-          @Override
-          public Iterator<VariableInput> iterator() {
-            return new InputListIterator<VariableInput>(this);
-          }
-
-          @Override
-          public int size() {
-            return outputs.length;
-          }
-
-          @Override
-          public VariableInput at(int index) {
-            return Inputs.variableInput(outputs[index]);
-          }
-        };
-      }
-    };
-  }
-
-  // Create a {@link VariableInput} out of the output of an operation.
-  // The output has already been fetched from the operation and instantiated as a {@link Output}.
-  private static VariableInput variableInput(Output output) {
-
-    return new VariableInput() {
-
-      @Override
-      public Output asOutput() {
-        return output;
-      }
-    };
-  }
-
-  // All outputs of an operation are flattened in a sequence and retrieved individually using indexes. This
-  // method will return the outputs found between 'start' and 'start + length - 1'.
-  private static Output[] fetchOutputs(Operation op, int start, int length) {
-    final Output[] outputs = new Output[length];
+  public static List<VariableInput> variableInputList(Operation op, int start, int length) {
+    List<VariableInput> inputs = new ArrayList<>(length);
     int end = start + length;
 
     for (int i = start; i < end; i++) {
-      outputs[i - start] = op.output(i);
+      inputs.add(variableInput(op, i));
     }
-    return outputs;
+    return Collections.unmodifiableList(inputs);
   }
 
-  // Basic implementation of an input list iterator.
-  private static class InputListIterator<T extends Input> implements Iterator<T> {
-
-    @Override
-    public boolean hasNext() {
-      return currentIndex < listAccessor.size();
+  /**
+   * Create a list of {@link VariableInput} from an iteration of {@link Output}.
+   *
+   * <p>This wraps all instances of {@link Output} with {@link VariableInput} to enforce
+   * compile-time type checking for operations taking variable references in input.
+   *
+   * @param outputs iteration of output
+   * @return a read-only list of {@link VariableInput}
+   */
+  public static List<VariableInput> variableInputList(Iterable<? extends Output> outputs) {
+    List<VariableInput> inputs = new ArrayList<>();
+    for (Output output : outputs) {
+      inputs.add(variableInput(output));
     }
-
-    @Override
-    public T next() {
-      return listAccessor.at(currentIndex++);
-    }
-
-    InputListIterator(InputList.Accessor<T> listAccessor) {
-      this.listAccessor = listAccessor;
-      currentIndex = 0;
-    }
-
-    private final InputList.Accessor<T> listAccessor;
-    private int currentIndex;
+    return Collections.unmodifiableList(inputs);
   }
 
+  // Disabled constructor
   private Inputs() {}
 }

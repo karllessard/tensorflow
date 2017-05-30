@@ -16,14 +16,14 @@ limitations under the License.
 package org.tensorflow;
 
 /**
- * A variant of {@link Input} when the tensor in input to an operation is a reference to a variable.
+ * A variant of {@link Input} where the tensor being passed in input is a variable.
  *
- * <p>The principal goal of this interface is to enforce type strictness for operation that takes in
- * input a variable tensor. It is allowed to pass a variable tensor as any other input tensor but
- * not the opposite.
+ * <p>The principal goal of this interface is to enforce compile-time type checking for operations
+ * that takes in input a reference to a variable tensor. It is allowed to pass a variable tensor as
+ * any other input tensor but not the opposite.
  *
  * <pre>{@code
- * VariableRef var = ....;
+ * VariableInput var = ....;
  * ops.math.mean(var, ...); // will work
  * ops.training.applyGradientDescent(var, ...); // will work
  *
@@ -32,4 +32,5 @@ package org.tensorflow;
  * ops.training.applyGradientDescent(input, ...); // won't work
  * }</pre>
  */
+@FunctionalInterface
 public interface VariableInput extends Input {}

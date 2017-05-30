@@ -54,12 +54,7 @@ public class OperationTest {
 
   private static int split(int[] values, int num_split) {
     try (Graph g = new Graph()) {
-      return g.opBuilder("Split", "Split")
-          .addInput(TestUtil.constant(g, "split_dim", 0))
-          .addInput(TestUtil.constant(g, "values", values))
-          .setAttr("num_split", num_split)
-          .build()
-          .outputListLength("output");
+      return TestUtil.split(g, values, num_split).outputListLength("output");
     }
   }
 }

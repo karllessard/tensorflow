@@ -48,6 +48,14 @@ public class TestUtil {
         .output(0);
   }
 
+  public static Operation split(Graph g, int[] values, int num_split) {
+    return g.opBuilder("Split", "Split")
+        .addInput(constant(g, "split_dim", 0))
+        .addInput(constant(g, "values", values))
+        .setAttr("num_split", num_split)
+        .build();
+  }
+
   public static void transpose_A_times_X(Graph g, int[][] a) {
     matmul(g, "Y", constant(g, "A", a), placeholder(g, "X", DataType.INT32), true, false);
   }

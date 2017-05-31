@@ -25,7 +25,6 @@ package org.tensorflow;
  * instance of {@link Output}. This interface is only an abstraction of the object passing the
  * tensor as an operand.
  */
-@FunctionalInterface
 public interface Input {
 
   /** Returns the input tensor as an {@link Output}. */

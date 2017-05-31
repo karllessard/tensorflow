@@ -72,6 +72,7 @@ public final class Inputs {
    */
   public static List<Output> outputList(Iterable<? extends Input> inputs) {
     List<Output> outputs = new ArrayList<>();
+
     for (Input input : inputs) {
       outputs.add(input.asOutput());
     }
@@ -101,8 +102,14 @@ public final class Inputs {
    * @param output
    * @return the output wrapped in a {@link VariableInput}
    */
-  public static VariableInput variableInput(Output output) {
-    return () -> output;
+  public static VariableInput variableInput(final Output output) {
+    return new VariableInput() {
+
+      @Override
+      public Output asOutput() {
+        return output;
+      }
+    };
   }
 
   /**
@@ -139,6 +146,7 @@ public final class Inputs {
    */
   public static List<VariableInput> variableInputList(Iterable<? extends Output> outputs) {
     List<VariableInput> inputs = new ArrayList<>();
+
     for (Output output : outputs) {
       inputs.add(variableInput(output));
     }

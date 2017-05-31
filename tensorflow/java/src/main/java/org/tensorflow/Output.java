@@ -20,6 +20,9 @@ package org.tensorflow;
  *
  * <p>An Output is a symbolic handle to a tensor. The value of the Tensor is computed by executing
  * the {@link Operation} in a {@link Session}.
+ *
+ * <p>By implementing the {@link Input} interface, this handle could also be passed directly as an
+ * input of an operation when using the ops api.
  */
 public final class Output implements Input {
 

@@ -73,15 +73,14 @@ public final class Operation {
   /**
    * Returns the size of the list of Tensors produced by this operation.
    *
-   * <p>An Operation has multiple named outputs, each of which produces either
-   * a single tensor or a list of tensors. This method returns the size of
-   * the list of tensors for a specific named output of the operation.
+   * <p>An Operation has multiple named outputs, each of which produces either a single tensor or a
+   * list of tensors. This method returns the size of the list of tensors for a specific named
+   * output of the operation.
    *
-   * @param name identifier of the list of tensors (of which there may
-   *        be many) produced by this operation.
+   * @param name identifier of the list of tensors (of which there may be many) produced by this
+   *     operation.
    * @returns the size of the list of Tensors produced by this named output.
-   * @throws IllegalArgumentException if this operation has no output
-   *         with the provided name.
+   * @throws IllegalArgumentException if this operation has no output with the provided name.
    */
   public int outputListLength(final String name) {
     Graph.Reference r = graph.ref();
@@ -95,6 +94,11 @@ public final class Operation {
   /** Returns a symbolic handle to one of the tensors produced by this operation. */
   public Output output(int idx) {
     return new Output(this, idx);
+  }
+
+  /** Returns a symbolic handle to one of the variable tensors produced by this operation. */
+  public VariableOutput variableOutput(int idx) {
+    return new VariableOutput(this, idx);
   }
 
   long getUnsafeNativeHandle() {

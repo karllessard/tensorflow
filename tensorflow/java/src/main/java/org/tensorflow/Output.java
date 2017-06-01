@@ -24,7 +24,7 @@ package org.tensorflow;
  * <p>By implementing the {@link Input} interface, this handle could also be passed directly as an
  * input of an operation when using the ops api.
  */
-public final class Output implements Input {
+public class Output implements Input {
 
   /** Handle to the idx-th output of the Operation {@code op}. */
   public Output(Operation op, int idx) {

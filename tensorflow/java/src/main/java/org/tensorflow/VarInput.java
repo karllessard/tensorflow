@@ -23,7 +23,7 @@ package org.tensorflow;
  * any other input tensor but not the opposite.
  *
  * <pre>{@code
- * VariableInput var = ....;
+ * VarInput var = ....;
  * ops.math.mean(var, ...); // will work
  * ops.training.applyGradientDescent(var, ...); // will work
  *

@@ -14,4 +14,9 @@ public class VarOutput extends Output implements VarInput {
   public VarOutput(Operation op, int idx) {
     super(op, idx);
   }
+
+  @Override
+  public VarOutput asOutput() {
+    return this;
+  }
 }

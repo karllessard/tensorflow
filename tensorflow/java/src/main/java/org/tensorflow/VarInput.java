@@ -32,4 +32,4 @@ package org.tensorflow;
  * ops.training.applyGradientDescent(input, ...); // won't work
  * }</pre>
  */
-public interface VariableInput extends Input {}
+public interface VarInput extends Input {}

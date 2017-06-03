@@ -56,7 +56,7 @@ public final class Outputs {
   }
 
   /**
-   * Create a list of {@link VariableOutput} out of the output of an operation.
+   * Create a list of {@link VarOutput} out of the output of an operation.
    *
    * <p>This is identical to {@link #list(Operation, int, int)} but outputs are returned as variable
    * handlers to enforce compile-time type checking for operations operating on variables.
@@ -64,11 +64,11 @@ public final class Outputs {
    * @param op operation to retrieve output from
    * @param start index of the first tensor of this output
    * @param length number of tensors in this output
-   * @return a read-only list of {@link VariableOutput}
+   * @return a read-only list of {@link VarOutput}
    * @see {@link #list(Operation, int, int)}
    */
-  public static List<VariableOutput> variableList(Operation op, int start, int length) {
-    List<VariableOutput> outputs = new ArrayList<>(length);
+  public static List<VarOutput> variableList(Operation op, int start, int length) {
+    List<VarOutput> outputs = new ArrayList<>(length);
     int end = start + length;
 
     for (int i = start; i < end; i++) {

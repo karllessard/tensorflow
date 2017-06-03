@@ -49,7 +49,7 @@ public class OutputsTest {
     try (Graph g = new Graph()) {
       Operation op = TestUtil.split(g, new int[] {0, 1, 2}, 3);
 
-      List<VariableOutput> vars = Outputs.variableList(op, 0, 3); // get the right amount
+      List<VarOutput> vars = Outputs.variableList(op, 0, 3); // get the right amount
       assertEquals(3, vars.size());
 
       vars = Outputs.variableList(op, 0, 1); // get less

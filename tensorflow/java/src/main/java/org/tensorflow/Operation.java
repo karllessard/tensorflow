@@ -97,8 +97,8 @@ public final class Operation {
   }
 
   /** Returns a symbolic handle to one of the variable tensors produced by this operation. */
-  public VariableOutput variableOutput(int idx) {
-    return new VariableOutput(this, idx);
+  public VarOutput variableOutput(int idx) {
+    return new VarOutput(this, idx);
   }
 
   long getUnsafeNativeHandle() {

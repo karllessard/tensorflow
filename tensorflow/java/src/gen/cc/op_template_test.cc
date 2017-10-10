@@ -33,7 +33,7 @@ JavaDoc GenerateDoc(const string& name) {
   return doc;
 }
 
-void RenderMultipleOutputsOp(const string& output_dir) {
+void RenderMultipleOutputsOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
   JavaClass op_class("MultipleOutputsOp", "org.tensorflow.op.test");
@@ -53,15 +53,14 @@ void RenderMultipleOutputsOp(const string& output_dir) {
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 
-  FileSourceOutputStream stream(
-      io::JoinPath(output_dir, "MultipleOutputsOp.java"));
+  FileSourceOutputStream stream(fname);
   tmpl.Render(&stream);
 }
 
-void RenderMultipleOutputsOpWithOptions(const string& output_dir) {
+void RenderMultipleOutputsAndOptionsOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
-  JavaClass op_class("MultipleOutputsOpWithOptions", "org.tensorflow.op.test");
+  JavaClass op_class("MultipleOutputsAndOptionsOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
   tmpl.ClassTemplate(op_class);
 
@@ -82,12 +81,11 @@ void RenderMultipleOutputsOpWithOptions(const string& output_dir) {
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 
-  FileSourceOutputStream stream(
-      io::JoinPath(output_dir, "MultipleOutputsOpWithOptions.java"));
+  FileSourceOutputStream stream(fname);
   tmpl.Render(&stream);
 }
 
-void RenderSingleOutputOp(const string& output_dir) {
+void RenderSingleOutputOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
   JavaClass op_class("SingleOutputOp", "org.tensorflow.op.test");
@@ -102,12 +100,11 @@ void RenderSingleOutputOp(const string& output_dir) {
   output.doc(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
-  FileSourceOutputStream stream(
-      io::JoinPath(output_dir, "SingleOutputOp.java"));
+  FileSourceOutputStream stream(fname);
   tmpl.Render(&stream);
 }
 
-void RenderSingleOutputListOp(const string& output_dir) {
+void RenderSingleOutputListOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
   JavaClass op_class("SingleOutputListOp", "org.tensorflow.op.test");
@@ -123,12 +120,11 @@ void RenderSingleOutputListOp(const string& output_dir) {
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 
-  FileSourceOutputStream stream(
-      io::JoinPath(output_dir, "SingleOutputListOp.java"));
+  FileSourceOutputStream stream(fname);
   tmpl.Render(&stream);
 }
 
-void RenderGenericOp(const string& output_dir) {
+void RenderGenericOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
   JavaClass op_class("GenericOp", "org.tensorflow.op.test");
@@ -170,7 +166,54 @@ void RenderGenericOp(const string& output_dir) {
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 
-  FileSourceOutputStream stream(io::JoinPath(output_dir, "GenericOp.java"));
+  FileSourceOutputStream stream(fname);
+  tmpl.Render(&stream);
+}
+
+void RenderGenericWithParentOp(const string& fname) {
+  OpTemplate tmpl("Test", "test");
+
+  JavaClass op_class("GenericWithParentOp", "org.tensorflow.op.test");
+  op_class.doc(GenerateDoc("class"));
+  JavaType tensor_type("T");
+  tensor_type.generic(true);
+  tensor_type.supertype(JavaType("BigInteger", "java.math"));
+  op_class.param(tensor_type);
+  tmpl.ClassTemplate(op_class);
+
+  JavaType input_type("Operand", "org.tensorflow");
+  input_type.param(tensor_type);
+  JavaVariable input("input", input_type);
+  input.doc(GenerateDoc("input"));
+  tmpl.AddInput(input);
+
+  JavaType input_list_type("Iterable");
+  input_list_type.param(input_type);
+  JavaVariable input_list("inputList", input_list_type);
+  input_list.doc(GenerateDoc("input list"));
+  tmpl.AddInput(input_list);
+
+  JavaVariable attr("attr", JavaType("Boolean"));
+  attr.doc(GenerateDoc("attribute"));
+  tmpl.AddAttribute(attr, false);
+
+  JavaVariable opt_attr("opt", JavaType("Integer"));
+  opt_attr.doc(GenerateDoc("optional attribute"));
+  tmpl.AddAttribute(opt_attr, true);
+
+  JavaType output_type("Output", "org.tensorflow");
+  output_type.param(tensor_type);
+  JavaVariable output("output", output_type);
+  output.doc(GenerateDoc("output"));
+  tmpl.AddOutput(output);
+
+  JavaType output_list_type("List", "java.util");
+  output_list_type.param(output_type);
+  JavaVariable output_list("outputList", output_list_type);
+  output_list.doc(GenerateDoc("output list"));
+  tmpl.AddOutput(output_list);
+
+  FileSourceOutputStream stream(fname);
   tmpl.Render(&stream);
 }
 
@@ -185,9 +228,16 @@ int main(int argc, char** argv) {
   if (!env->FileExists(output_dir).ok()) {
     env->RecursivelyCreateDir(output_dir);
   }
-  tensorflow::op_gen::RenderMultipleOutputsOp(output_dir);
-  tensorflow::op_gen::RenderMultipleOutputsOpWithOptions(output_dir);
-  tensorflow::op_gen::RenderSingleOutputOp(output_dir);
-  tensorflow::op_gen::RenderSingleOutputListOp(output_dir);
-  tensorflow::op_gen::RenderGenericOp(output_dir);
+  tensorflow::op_gen::RenderMultipleOutputsOp(
+      tensorflow::io::JoinPath(output_dir, "MultipleOutputsOp.java"));
+  tensorflow::op_gen::RenderMultipleOutputsAndOptionsOp(
+      tensorflow::io::JoinPath(output_dir, "MultipleOutputsAndOptionsOp.java"));
+  tensorflow::op_gen::RenderSingleOutputOp(
+      tensorflow::io::JoinPath(output_dir, "SingleOutputOp.java"));
+  tensorflow::op_gen::RenderSingleOutputListOp(
+      tensorflow::io::JoinPath(output_dir, "SingleOutputListOp.java"));
+  tensorflow::op_gen::RenderGenericOp(
+      tensorflow::io::JoinPath(output_dir, "GenericOp.java"));
+  tensorflow::op_gen::RenderGenericWithParentOp(
+      tensorflow::io::JoinPath(output_dir, "GenericWithParentOp.java"));
 }

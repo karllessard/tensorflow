@@ -83,7 +83,7 @@ class JavaType {
   }
   const JavaType* supertype() const { return supertype_.get(); }
 
-  template <class Visitor> void Accept(Visitor visitor) const;
+  template <class TypeScanner> void Accept(TypeScanner* scanner) const;
 
  private:
   bool generic_ = false;
@@ -126,7 +126,7 @@ class JavaClass : public JavaType {
   }
   const std::list<JavaType>& interfaces() const { return interfaces_; }
 
-  template <class Visitor> void Accept(Visitor visitor) const;
+  template <class TypeScanner> void Accept(TypeScanner* scanner) const;
 
  private:
   std::list<JavaAnnotation> annotations_;
@@ -184,6 +184,8 @@ class JavaMethod {
   }
   const std::list<JavaAnnotation>& annotations() const { return annotations_; }
 
+  template <class TypeScanner> void Accept(TypeScanner* scanner) const;
+
  private:
   JavaDoc doc_;
   string name_;
@@ -192,28 +194,39 @@ class JavaMethod {
   std::list<JavaAnnotation> annotations_;
 };
 
-template <class Visitor>
-void JavaType::Accept(Visitor visitor) const {
-  visitor(this);
+template <class TypeScanner>
+void JavaType::Accept(TypeScanner* scanner) const {
+  (*scanner)(this);
   for (std::list<JavaType>::const_iterator it = params_.cbegin();
       it != params_.cend(); ++it) {
-    it->Accept(visitor);
+    it->Accept(scanner);
   }
   if (supertype() != nullptr) {
-    supertype()->Accept(visitor);
+    supertype()->Accept(scanner);
   }
 }
 
-template <class Visitor>
-void JavaClass::Accept(Visitor visitor) const {
-  JavaType::Accept(visitor);
+template <class TypeScanner>
+void JavaClass::Accept(TypeScanner* scanner) const {
+  JavaType::Accept(scanner);
   for (std::list<JavaAnnotation>::const_iterator it = annotations_.cbegin();
       it != annotations_.cend(); ++it) {
-    it->Accept(visitor);
+    it->Accept(scanner);
   }
   for (std::list<JavaType>::const_iterator it = interfaces_.cbegin();
       it != interfaces_.cend(); ++it) {
-    it->Accept(visitor);
+    it->Accept(scanner);
+  }
+}
+
+template <class TypeScanner>
+void JavaMethod::Accept(TypeScanner* scanner) const {
+  if (type_.valid()) {
+    type_.Accept(scanner);
+  }
+  for (std::list<JavaVariable>::const_iterator arg = args_.cbegin();
+      arg != args_.cend(); ++arg) {
+    arg->type().Accept(scanner);
   }
 }
 

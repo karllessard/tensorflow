@@ -32,54 +32,45 @@ namespace tensorflow {
 const char kJavaGenResourcePath[] = "tensorflow/java/src/gen/resources/";
 
 class JavaBaseWriter {
- protected:
-  struct Context {
-    SourceOutputStream* stream;
-    std::set<string> declared_generics;
-  };
-
  public:
-  explicit JavaBaseWriter(SourceOutputStream* stream) {
-    context.stream = stream;
-  }
-  explicit JavaBaseWriter(Context context) : context(context) {}
+  explicit JavaBaseWriter(SourceOutputStream* stream) : stream_(stream) {}
   virtual ~JavaBaseWriter() = default;
 
   JavaBaseWriter* WriteSnippet(const string& fname, Env* env = Env::Default()) {
     string str;
     TF_CHECK_OK(ReadFileToString(env, fname, &str));
-    stream()->Inline(str);
+    stream_->Inline(str);
     return this;
   }
   JavaBaseWriter* WriteLine(const string& str) {
-    stream()->Append(str)->EndOfLine();
+    stream_->Append(str)->EndOfLine();
     return this;
   }
   JavaBaseWriter* BeginBlock(const string& expr) {
+    stream_->Append(expr);
+    return BeginBlock();
+  }
+  JavaBaseWriter* BeginBlock() {
     static const StringPiece open_brace(" {");
-    stream()->Append(expr)->Append(open_brace)->EndOfLine()->Indent(2);
+    stream_->Append(open_brace)->EndOfLine()->Indent(2);
     return this;
   }
   JavaBaseWriter* EndOfBlock() {
     static const StringPiece close_brace("}");
-    stream()->Indent(-2)->Append(close_brace)->EndOfLine();
+    stream_->Indent(-2)->Append(close_brace)->EndOfLine();
     return this;
   }
 
  protected:
-  Context context;
-  SourceOutputStream* stream() { return context.stream; }
-
-  void WriteAnnotations(const std::list<JavaAnnotation>& annotations);
-  void WriteDoc(const JavaDoc& doc,
-      const std::list<JavaVariable>* params = NULL);
-  void WriteClassHeader(const JavaClass& clazz, int modifiers = 0);
+  SourceOutputStream* stream_;
 };
 
 class JavaMethodWriter : public JavaBaseWriter {
  public:
-  explicit JavaMethodWriter(Context context)
-    : JavaBaseWriter(context) {}
+  explicit JavaMethodWriter(SourceOutputStream * stream)
+    : JavaBaseWriter(stream) {}
+  JavaMethodWriter(SourceOutputStream* stream, std::set<string> generics)
+    : JavaBaseWriter(stream), declared_generics_names_(generics) {}
   virtual ~JavaMethodWriter() = default;
 
   JavaMethodWriter* WriteSnippet(const string& fname,
@@ -103,12 +94,21 @@ class JavaMethodWriter : public JavaBaseWriter {
     JavaBaseWriter::EndOfBlock();
     delete this;
   }
+
+ private:
+  std::set<string> declared_generics_names_;
+
+  JavaMethodWriter* Begin(const JavaMethod& method, int modifiers);
+
+  friend class JavaClassWriter;
 };
 
 class JavaClassWriter : public JavaBaseWriter {
  public:
-  explicit JavaClassWriter(Context context)
-    : JavaBaseWriter(context) {}
+  explicit JavaClassWriter(SourceOutputStream * stream)
+    : JavaBaseWriter(stream) {}
+  JavaClassWriter(SourceOutputStream* stream, std::set<string> generics)
+    : JavaBaseWriter(stream), declared_generics_names_(generics) {}
   virtual ~JavaClassWriter() = default;
 
   JavaClassWriter* WriteFields(const std::list<JavaVariable>& fields,
@@ -136,6 +136,13 @@ class JavaClassWriter : public JavaBaseWriter {
     JavaBaseWriter::EndOfBlock();
     delete this;
   }
+
+ private:
+  std::set<string> declared_generics_names_;
+
+  JavaClassWriter* Begin(const JavaClass& clazz, int modifiers);
+
+  friend class JavaWriter;
 };
 
 class JavaWriter : public JavaBaseWriter {

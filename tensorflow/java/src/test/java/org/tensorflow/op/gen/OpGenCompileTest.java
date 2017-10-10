@@ -20,8 +20,8 @@ public class OpGenCompileTest {
   }
 
   @Test
-  public void compileMultipleOutputsOpWithOptions() {
-    Compilation compile = compile("ops/test/MultipleOutputsOpWithOptions.java");
+  public void compileMultipleOutputsAndOptionsOp() {
+    Compilation compile = compile("ops/test/MultipleOutputsAndOptionsOp.java");
     assertThat(compile).succeededWithoutWarnings();
   }
 
@@ -40,6 +40,12 @@ public class OpGenCompileTest {
   @Test
   public void compileGenericOp() {
     Compilation compile = compile("ops/test/GenericOp.java");
+    assertThat(compile).succeededWithoutWarnings();
+  }
+
+  @Test
+  public void compileGenericWithParentOp() {
+    Compilation compile = compile("ops/test/GenericWithParentOp.java");
     assertThat(compile).succeededWithoutWarnings();
   }
 

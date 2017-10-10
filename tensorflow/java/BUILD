@@ -14,6 +14,8 @@ load(
     "tf_copts",
     "tf_custom_op_library",
     "tf_java_test",
+    "tf_cc_tests",
+    "tf_cc_test"
 )
 
 java_library(
@@ -81,11 +83,29 @@ tf_java_op_gen_srcjar(
 # file before making it an executable. See tf_java_op_gen_srcjar().
 cc_library(
     name = "java_op_gen_tool",
-    srcs = glob([
-        "src/gen/cc/*.h",
-        "src/gen/cc/*.cc",
-    ]),
+    srcs = glob(["src/gen/cc/op_gen_main.cc"]),
     copts = tf_copts(),
+    deps = [
+        ":java_op_gen_lib"
+    ]
+)
+
+cc_library(
+    name = "java_op_gen_lib",
+    srcs = glob(
+        [
+            "src/gen/cc/*.h",
+            "src/gen/cc/*.cc",
+        ],
+        exclude = [
+            "src/gen/cc/*_test.cc",
+            "src/gen/cc/op_gen_main.cc",
+        ],
+    ),
+    copts = tf_copts(),
+    data = [
+        "src/gen/resources/licence.snippet.java",
+    ],
     deps = [
         "//tensorflow/core:framework",
         "//tensorflow/core:framework_internal",
@@ -261,6 +281,69 @@ tf_java_test(
         ":tensorflow",
         ":testutil",
         "@junit",
+    ],
+)
+
+tf_java_test(
+    name = "OpGenCompileTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/op/gen/OpGenCompileTest.java"],
+    javacopts = JAVACOPTS,
+    test_class = "org.tensorflow.op.gen.OpGenCompileTest",
+    resources = [":op_template_test_genfiles"],
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
+        "@com_google_testing_compile",
+        "@com_google_truth",
+        ":op_template_test_genfiles",
+    ],
+)
+
+genrule(
+    name="op_template_test_genfiles",
+    outs=[
+      "ops/test/MultipleOutputsOp.java",
+      "ops/test/MultipleOutputsAndOptionsOp.java",
+      "ops/test/SingleOutputOp.java",
+      "ops/test/SingleOutputListOp.java",
+      "ops/test/GenericOp.java",
+      "ops/test/GenericWithParentOp.java"
+    ],
+    tools=["op_template_test"],
+    cmd="$(location :op_template_test) $(GENDIR)",
+    testonly=1
+)
+
+cc_binary(
+    name = "op_template_test",
+    srcs = ["src/gen/cc/op_template_test.cc"],
+    deps = [
+        ":java_op_gen_lib",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+    ],
+    testonly=1
+)
+
+tf_cc_tests(
+    name = "java_op_gen_cc_tests",
+    size = "small",
+    srcs = glob(
+        [
+            "src/gen/cc/*_test.cc",
+        ],
+        exclude = [
+            "src/gen/cc/op_template_test.cc",
+        ],
+    ),
+    deps = [
+        ":java_op_gen_lib",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:test",
+        "//tensorflow/core:test_main",
     ],
 )
 

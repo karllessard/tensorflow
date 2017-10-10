@@ -33,6 +33,18 @@ OpTemplate::OpTemplate(const string& op_name, const string& op_group)
   });
 }
 
+void OpTemplate::AddVariable(const JavaVariable& var,
+    std::list<JavaVariable>* list) {
+  auto scanner = [this](const JavaType* type) {
+    if (!type->package().empty() && type->package() !=
+        this->op_class.package()) {
+      this->imports.insert(type->package() + "." + type->name());
+    }
+  };
+  var.type().Accept(&scanner);
+  list->push_back(var);
+}
+
 void OpTemplate::Render(SourceOutputStream* stream) {
   RenderMode mode = SelectRenderMode();
   switch (mode) {

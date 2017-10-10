@@ -98,8 +98,9 @@ public final class Operation {
    * @param length number of tensors in the list
    * @return array of {@code Output}
    */
-  public Output<?>[] outputList(int idx, int length) {
-    Output<?>[] outputs = new Output<?>[length];
+  public <T> Output<T>[] outputList(int idx, int length) {
+    @SuppressWarnings("unchecked")
+    Output<T>[] outputs = (Output<T>[]) new Output<?>[length];
     for (int i = 0; i < length; ++i) {
       outputs[i] = output(idx + i);
     }

@@ -70,15 +70,7 @@ class OpTemplate {
   void RenderMethods(JavaClassWriter* op_writer, RenderMode mode);
   void RenderConstructor(JavaClassWriter* op_writer);
   void CollectImports(const JavaType& type);
-  void AddVariable(const JavaVariable& var, std::list<JavaVariable>* list) {
-    var.type().Accept([this](const JavaType* type) {
-      if (!type->package().empty() && type->package() !=
-          this->op_class.package()) {
-        this->imports.insert(type->package() + "." + type->name());
-      }
-    });
-    list->push_back(var);
-  }
+  void AddVariable(const JavaVariable& var, std::list<JavaVariable>* list);
   static bool IsList(const JavaVariable& var) {
     return var.type().name() == "List" || var.type().name() == "Iterable";
   }

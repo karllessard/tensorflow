@@ -23,7 +23,7 @@ limitations under the License.
 #include "tensorflow/java/src/gen/cc/src_ostream.h"
 
 namespace tensorflow {
-namespace op_gen {
+namespace {
 
 JavaDoc GenerateDoc(const string& name) {
   JavaDoc doc;
@@ -228,16 +228,16 @@ int main(int argc, char** argv) {
   if (!env->FileExists(output_dir).ok()) {
     env->RecursivelyCreateDir(output_dir);
   }
-  tensorflow::op_gen::RenderMultipleOutputsOp(
+  tensorflow::RenderMultipleOutputsOp(
       tensorflow::io::JoinPath(output_dir, "MultipleOutputsOp.java"));
-  tensorflow::op_gen::RenderMultipleOutputsAndOptionsOp(
+  tensorflow::RenderMultipleOutputsAndOptionsOp(
       tensorflow::io::JoinPath(output_dir, "MultipleOutputsAndOptionsOp.java"));
-  tensorflow::op_gen::RenderSingleOutputOp(
+  tensorflow::RenderSingleOutputOp(
       tensorflow::io::JoinPath(output_dir, "SingleOutputOp.java"));
-  tensorflow::op_gen::RenderSingleOutputListOp(
+  tensorflow::RenderSingleOutputListOp(
       tensorflow::io::JoinPath(output_dir, "SingleOutputListOp.java"));
-  tensorflow::op_gen::RenderGenericOp(
+  tensorflow::RenderGenericOp(
       tensorflow::io::JoinPath(output_dir, "GenericOp.java"));
-  tensorflow::op_gen::RenderGenericWithParentOp(
+  tensorflow::RenderGenericWithParentOp(
       tensorflow::io::JoinPath(output_dir, "GenericWithParentOp.java"));
 }

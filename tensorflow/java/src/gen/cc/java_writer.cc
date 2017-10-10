@@ -24,7 +24,7 @@ namespace {
 
 class GenericTypeScanner {
  public:
-  GenericTypeScanner(std::set<string>* declared_names)
+  explicit GenericTypeScanner(std::set<string>* declared_names)
     : declared_names_(declared_names) {}
   const std::list<const JavaType*>& discoveredTypes() const {
     return discovered_types_;

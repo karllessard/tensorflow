@@ -84,11 +84,11 @@ class JavaType {
 
  private:
   bool generic_ = false;
-  JavaDoc doc_;
   string name_;
   string package_;
   std::list<JavaType> params_;
   std::shared_ptr<JavaType> supertype_;
+  JavaDoc doc_;
 };
 
 class JavaAnnotation : public JavaType {
@@ -142,9 +142,9 @@ class JavaVariable {
   JavaDoc* doc_ptr() { return &doc_; }
 
  private:
-  JavaDoc doc_;
   string name_;
   JavaType type_;
+  JavaDoc doc_;
 };
 
 class JavaMethod {
@@ -177,11 +177,11 @@ class JavaMethod {
   template <class TypeScanner> void Accept(TypeScanner* scanner) const;
 
  private:
-  JavaDoc doc_;
   string name_;
   JavaType type_;
   std::list<JavaVariable> args_;
   std::list<JavaAnnotation> annotations_;
+  JavaDoc doc_;
 };
 
 template <class TypeScanner>

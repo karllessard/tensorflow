@@ -57,7 +57,7 @@ class JavaDoc {
 
 class JavaType {
  public:
-  JavaType() = default;
+  JavaType(bool generic = false) : generic_(generic) {}
   explicit JavaType(const string& name, bool generic = false)
     : generic_(generic), name_(name) {}
   JavaType(const string& name, const string& package)

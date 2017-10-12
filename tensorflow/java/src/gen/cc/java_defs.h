@@ -41,6 +41,7 @@ class JavaDoc {
  public:
   JavaDoc() = default;
   virtual ~JavaDoc() = default;
+
   JavaDoc* brief(const string& brief) { brief_ = brief; return this; }
   const string& brief() const { return brief_; }
   JavaDoc* description(const string& desc) { description_ = desc; return this; }
@@ -62,6 +63,7 @@ class JavaType {
   JavaType(const string& name, const string& package)
     : name_(name), package_(package) {}
   virtual ~JavaType() = default;
+
   bool valid() const { return !name_.empty() || generic(); }
   bool generic() const { return generic_; }
   const string& name() const { return name_; }
@@ -97,6 +99,7 @@ class JavaAnnotation : public JavaType {
   JavaAnnotation(const string& name, const string& package)
     : JavaType(name, package) {}
   virtual ~JavaAnnotation() = default;
+
   const string& attrs() const { return attrs_; }
   JavaAnnotation* attrs(const string& attrs) { attrs_ = attrs; return this; }
 
@@ -111,6 +114,7 @@ class JavaClass : public JavaType {
   JavaClass(const string& name, const string& package)
     : JavaType(name, package) {}
   virtual ~JavaClass() = default;
+
   const std::list<JavaAnnotation>& annotations() const { return annotations_; }
   JavaClass* annotation(const JavaAnnotation& annot) {
     annotations_.push_back(annot);
@@ -153,6 +157,7 @@ class JavaMethod {
   JavaMethod(const string& name, const JavaType& type)
     : name_(name), type_(type) {}
   virtual ~JavaMethod() = default;
+
   const string& name() const { return name_; }
   const JavaType& type() const { return type_; }
   JavaType* type_ptr() { return &type_; }

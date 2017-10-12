@@ -129,8 +129,7 @@ void RenderGenericOp(const string& fname) {
 
   JavaClass op_class("GenericOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
-  JavaType tensor_type("T");
-  tensor_type.generic(true);
+  JavaType tensor_type("T", true);
   op_class.param(tensor_type);
   tmpl.OpClass(op_class);
 
@@ -175,8 +174,7 @@ void RenderGenericWithParentOp(const string& fname) {
 
   JavaClass op_class("GenericWithParentOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
-  JavaType tensor_type("T");
-  tensor_type.generic(true);
+  JavaType tensor_type("T", true);
   tensor_type.supertype(JavaType("BigInteger", "java.math"));
   op_class.param(tensor_type);
   tmpl.OpClass(op_class);

@@ -57,30 +57,28 @@ class JavaDoc {
 class JavaType {
  public:
   JavaType() = default;
-  explicit JavaType(const string& name) : name_(name) {}
+  explicit JavaType(const string& name, bool generic = false)
+    : generic_(generic), name_(name) {}
   JavaType(const string& name, const string& package)
     : name_(name), package_(package) {}
   virtual ~JavaType() = default;
   bool valid() const { return !name_.empty() || generic(); }
-  const string& name() const { return name_; }
-  JavaType* name(const string& name) { name_ = name; return this; }
-  const string& package() const { return package_; }
-  JavaType* package(const string& package) { package_ = package; return this; }
   bool generic() const { return generic_; }
-  JavaType* generic(bool value) { generic_ = value; return this; }
+  const string& name() const { return name_; }
+  const string& package() const { return package_; }
   const JavaDoc& doc() const { return doc_; }
-  JavaDoc* doc_ptr() { return &doc_; }
   JavaType* doc(const JavaDoc& doc) { doc_ = doc; return this; }
+  JavaDoc* doc_ptr() { return &doc_; }
   const std::list<JavaType>& params() const { return params_; }
   JavaType* param(const JavaType& param) {
     params_.push_back(param);
     return this;
   }
+  const JavaType* supertype() const { return supertype_.get(); }
   JavaType* supertype(const JavaType& type) {
     supertype_ = std::shared_ptr<JavaType>(new JavaType(type));
     return this;
   }
-  const JavaType* supertype() const { return supertype_.get(); }
 
   template <class TypeScanner> void Accept(TypeScanner* scanner) const;
 
@@ -99,8 +97,8 @@ class JavaAnnotation : public JavaType {
   JavaAnnotation(const string& name, const string& package)
     : JavaType(name, package) {}
   virtual ~JavaAnnotation() = default;
-  JavaAnnotation* attrs(const string& attrs) { attrs_ = attrs; return this; }
   const string& attrs() const { return attrs_; }
+  JavaAnnotation* attrs(const string& attrs) { attrs_ = attrs; return this; }
 
  private:
   string attrs_;
@@ -113,16 +111,16 @@ class JavaClass : public JavaType {
   JavaClass(const string& name, const string& package)
     : JavaType(name, package) {}
   virtual ~JavaClass() = default;
+  const std::list<JavaAnnotation>& annotations() const { return annotations_; }
   JavaClass* annotation(const JavaAnnotation& annot) {
     annotations_.push_back(annot);
     return this;
   }
-  const std::list<JavaAnnotation>& annotations() const { return annotations_; }
+  const std::list<JavaType>& interfaces() const { return interfaces_; }
   JavaClass* interface(const JavaType& type) {
     interfaces_.push_back(type);
     return this;
   }
-  const std::list<JavaType>& interfaces() const { return interfaces_; }
 
   template <class TypeScanner> void Accept(TypeScanner* scanner) const;
 
@@ -136,14 +134,12 @@ class JavaVariable {
   JavaVariable(const string& name, const JavaType& type)
     : name_(name), type_(type) {}
   virtual ~JavaVariable() = default;
+  const string& name() const { return name_; }
+  const JavaType& type() const { return type_; }
+  JavaType* type_ptr() { return &type_; }
+  const JavaDoc& doc() const { return doc_; }
   JavaVariable* doc(const JavaDoc& doc) { doc_ = doc; return this; }
   JavaDoc* doc_ptr() { return &doc_; }
-  const JavaDoc& doc() const { return doc_; }
-  JavaVariable* name(const string& name) { name_ = name; return this; }
-  const string& name() const { return name_; }
-  JavaVariable* type(const JavaType& type) { type_ = type; return this; }
-  JavaType* type_ptr() { return &type_; }
-  const JavaType& type() const { return type_; }
 
  private:
   JavaDoc doc_;
@@ -157,14 +153,12 @@ class JavaMethod {
   JavaMethod(const string& name, const JavaType& type)
     : name_(name), type_(type) {}
   virtual ~JavaMethod() = default;
+  const string& name() const { return name_; }
+  const JavaType& type() const { return type_; }
+  JavaType* type_ptr() { return &type_; }
+  const JavaDoc& doc() const { return doc_; }
   JavaMethod* doc(const JavaDoc& doc) { doc_ = doc; return this; }
   JavaDoc* doc_ptr() { return &doc_; }
-  const JavaDoc& doc() const { return doc_; }
-  JavaMethod* name(const string& name) { name_ = name; return this; }
-  const string& name() const { return name_; }
-  JavaMethod* type(const JavaType& type) { type_ = type; return this; }
-  JavaType* type_ptr() { return &type_; }
-  const JavaType& type() const { return type_; }
   JavaMethod* args(const std::list<JavaVariable>& args) {
     args_.insert(args_.cbegin(), args.cbegin(), args.cend());
     return this;

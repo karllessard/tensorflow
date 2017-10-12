@@ -138,6 +138,7 @@ class JavaVariable {
   JavaVariable(const string& name, const JavaType& type)
     : name_(name), type_(type) {}
   virtual ~JavaVariable() = default;
+
   const string& name() const { return name_; }
   const JavaType& type() const { return type_; }
   JavaType* type_ptr() { return &type_; }

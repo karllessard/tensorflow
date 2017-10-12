@@ -38,7 +38,7 @@ class OpTemplate {
 
   void Render(SourceOutputStream* stream);
 
-  void ClassTemplate(const JavaClass& class_tmpl) {
+  void OpClass(const JavaClass& class_tmpl) {
     this->op_class = class_tmpl;
   }
   void AddInput(const JavaVariable& input) {
@@ -70,7 +70,10 @@ class OpTemplate {
   void RenderMethods(JavaClassWriter* op_writer, RenderMode mode);
   void RenderConstructor(JavaClassWriter* op_writer);
   void CollectImports(const JavaType& type);
-  void AddVariable(const JavaVariable& var, std::list<JavaVariable>* list);
+  void AddVariable(const JavaVariable& var, std::list<JavaVariable>* list) {
+    CollectImports(var.type());
+    list->push_back(var);
+  }
   static bool IsList(const JavaVariable& var) {
     return var.type().name() == "List" || var.type().name() == "Iterable";
   }

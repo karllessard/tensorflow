@@ -54,7 +54,6 @@ class JavaDoc {
   string return_value_;
 };
 
-
 class JavaType {
  public:
   JavaType() = default;
@@ -96,7 +95,6 @@ class JavaType {
 
 class JavaAnnotation : public JavaType {
  public:
-  JavaAnnotation() = default;
   explicit JavaAnnotation(const string& name) : JavaType(name) {}
   JavaAnnotation(const string& name, const string& package)
     : JavaType(name, package) {}
@@ -135,7 +133,6 @@ class JavaClass : public JavaType {
 
 class JavaVariable {
  public:
-  JavaVariable() = default;
   JavaVariable(const string& name, const JavaType& type)
     : name_(name), type_(type) {}
   virtual ~JavaVariable() = default;
@@ -156,7 +153,6 @@ class JavaVariable {
 
 class JavaMethod {
  public:
-  JavaMethod() = default;
   explicit JavaMethod(const string& name) : name_(name) {}
   JavaMethod(const string& name, const JavaType& type)
     : name_(name), type_(type) {}

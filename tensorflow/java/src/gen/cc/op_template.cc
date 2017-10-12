@@ -33,18 +33,6 @@ OpTemplate::OpTemplate(const string& op_name, const string& op_group)
   });
 }
 
-void OpTemplate::AddVariable(const JavaVariable& var,
-    std::list<JavaVariable>* list) {
-  auto scanner = [this](const JavaType* type) {
-    if (!type->package().empty() && type->package() !=
-        this->op_class.package()) {
-      this->imports.insert(type->package() + "." + type->name());
-    }
-  };
-  var.type().Accept(&scanner);
-  list->push_back(var);
-}
-
 void OpTemplate::Render(SourceOutputStream* stream) {
   RenderMode mode = SelectRenderMode();
   switch (mode) {
@@ -129,20 +117,16 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   JavaVariable scope("scope", JavaType("Scope", "org.tensorflow.op"));
   scope.doc_ptr()->brief("Current graph scope");
 
-  JavaVariable options;
-  if (with_options) {
-    options.name("options");
-    options.type(JavaType("Options"));
-    options.doc_ptr()->brief("an object holding optional attributes values");
-  }
-
   JavaMethod factory("create", op_class);
   factory.doc_ptr()
       ->brief("Factory method to create a class to wrap a new "
           + op_name + " operation to the graph.")
       ->returnValue("a new instance of " + op_class.name());
   factory.arg(scope)->args(inputs)->args(attrs);
+
   if (with_options) {
+    JavaVariable options("options", JavaType("Options"));
+    options.doc_ptr()->brief("an object holding optional attributes values");
     factory.arg(options);
   }
 
@@ -254,15 +238,13 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
 }
 
 void OpTemplate::CollectImports(const JavaType& type) {
-  if (!type.package().empty() && type.package() != op_class.package()) {
-    imports.insert(type.package() + "." + type.name());
-  }
-  if (!type.params().empty()) {
-    std::list<JavaType>::const_iterator it;
-    for (it = type.params().cbegin(); it != type.params().cend(); ++it) {
-      CollectImports(*it);
+  auto import_scanner = [this](const JavaType* type) {
+    if (!type->package().empty() && type->package() !=
+        this->op_class.package()) {
+      this->imports.insert(type->package() + "." + type->name());
     }
-  }
+  };
+  type.Accept(&import_scanner);
 }
 
 } /* namespace tensorflow */

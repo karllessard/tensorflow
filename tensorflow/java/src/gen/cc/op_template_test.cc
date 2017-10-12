@@ -38,7 +38,7 @@ void RenderMultipleOutputsOp(const string& fname) {
 
   JavaClass op_class("MultipleOutputsOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
-  tmpl.ClassTemplate(op_class);
+  tmpl.OpClass(op_class);
 
   JavaVariable input("input", JavaType("Operand", "org.tensorflow"));
   input.doc(GenerateDoc("input"));
@@ -62,7 +62,7 @@ void RenderMultipleOutputsAndOptionsOp(const string& fname) {
 
   JavaClass op_class("MultipleOutputsAndOptionsOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
-  tmpl.ClassTemplate(op_class);
+  tmpl.OpClass(op_class);
 
   JavaVariable input("input", JavaType("Operand", "org.tensorflow"));
   input.doc(GenerateDoc("input"));
@@ -90,7 +90,7 @@ void RenderSingleOutputOp(const string& fname) {
 
   JavaClass op_class("SingleOutputOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
-  tmpl.ClassTemplate(op_class);
+  tmpl.OpClass(op_class);
 
   JavaVariable input("input", JavaType("Operand", "org.tensorflow"));
   input.doc(GenerateDoc("input"));
@@ -109,7 +109,7 @@ void RenderSingleOutputListOp(const string& fname) {
 
   JavaClass op_class("SingleOutputListOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
-  tmpl.ClassTemplate(op_class);
+  tmpl.OpClass(op_class);
 
   JavaVariable input("input", JavaType("Operand", "org.tensorflow"));
   input.doc(GenerateDoc("input"));
@@ -132,7 +132,7 @@ void RenderGenericOp(const string& fname) {
   JavaType tensor_type("T");
   tensor_type.generic(true);
   op_class.param(tensor_type);
-  tmpl.ClassTemplate(op_class);
+  tmpl.OpClass(op_class);
 
   JavaType input_type("Operand", "org.tensorflow");
   input_type.param(tensor_type);
@@ -179,7 +179,7 @@ void RenderGenericWithParentOp(const string& fname) {
   tensor_type.generic(true);
   tensor_type.supertype(JavaType("BigInteger", "java.math"));
   op_class.param(tensor_type);
-  tmpl.ClassTemplate(op_class);
+  tmpl.OpClass(op_class);
 
   JavaType input_type("Operand", "org.tensorflow");
   input_type.param(tensor_type);

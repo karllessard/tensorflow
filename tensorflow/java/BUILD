@@ -290,19 +290,19 @@ tf_java_test(
     srcs = ["src/test/java/org/tensorflow/op/gen/OpGenCompileTest.java"],
     javacopts = JAVACOPTS,
     test_class = "org.tensorflow.op.gen.OpGenCompileTest",
-    resources = [":op_template_test_genfiles"],
+    resources = [":op_template_gen_test"],
     deps = [
         ":tensorflow",
         ":testutil",
         "@junit",
         "@com_google_testing_compile",
         "@com_google_truth",
-        ":op_template_test_genfiles",
+        ":op_template_gen_test",
     ],
 )
 
 genrule(
-    name="op_template_test_genfiles",
+    name="op_template_gen_test",
     outs=[
       "ops/test/MultipleOutputsOp.java",
       "ops/test/MultipleOutputsAndOptionsOp.java",
@@ -311,13 +311,13 @@ genrule(
       "ops/test/GenericOp.java",
       "ops/test/GenericWithParentOp.java"
     ],
-    tools=["op_template_test"],
-    cmd="$(location :op_template_test) $(GENDIR)",
+    tools=["src_gen_cc_op_template_test"],
+    cmd="$(location :src_gen_cc_op_template_test) $(GENDIR)",
     testonly=1
 )
 
 cc_binary(
-    name = "op_template_test",
+    name = "src_gen_cc_op_template_test",
     srcs = ["src/gen/cc/op_template_test.cc"],
     deps = [
         ":java_op_gen_lib",

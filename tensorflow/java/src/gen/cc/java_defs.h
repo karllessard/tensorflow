@@ -57,11 +57,15 @@ class JavaDoc {
 
 class JavaType {
  public:
-  JavaType(bool generic = false) : generic_(generic) {}
+  explicit JavaType(bool generic = false) : generic_(generic) {}
   explicit JavaType(const string& name, bool generic = false)
     : generic_(generic), name_(name) {}
   JavaType(const string& name, const string& package)
     : name_(name), package_(package) {}
+  explicit JavaType(const char* name)  // avoid clash with bool
+    : JavaType(string(name)) {}
+  JavaType(const string& name, const char* package)  // avoid clash with bool
+    : JavaType(name, string(package)) {}
   virtual ~JavaType() = default;
 
   bool valid() const { return !name_.empty() || generic(); }

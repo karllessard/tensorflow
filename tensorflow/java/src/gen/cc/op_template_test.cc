@@ -25,8 +25,8 @@ limitations under the License.
 namespace tensorflow {
 namespace {
 
-JavaDoc GenerateDoc(const string& name) {
-  JavaDoc doc;
+java::Doc GenerateDoc(const string& name) {
+  java::Doc doc;
   doc.brief("This is a short description of this " + name);
   doc.description("This is a longer description of this " + name
      + " with multiple line breaks\n\n\nthat should all be prefixed by a star");
@@ -36,20 +36,20 @@ JavaDoc GenerateDoc(const string& name) {
 void RenderMultipleOutputsOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
-  JavaClass op_class("MultipleOutputsOp", "org.tensorflow.op.test");
+  java::Class op_class("MultipleOutputsOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
   tmpl.OpClass(op_class);
 
-  JavaVariable input("input", JavaType("Operand", "org.tensorflow"));
+  java::Variable input("input", java::Type("Operand", "org.tensorflow"));
   input.doc(GenerateDoc("input"));
   tmpl.AddInput(input);
 
-  JavaVariable output("output", JavaType("Output", "org.tensorflow"));
+  java::Variable output("output", java::Type("Output", "org.tensorflow"));
   output.doc(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
-  JavaVariable output_list("outputList", JavaType("List", "java.util"));
-  output_list.type_ptr()->param(JavaType("Output", "org.tensorflow"));
+  java::Variable output_list("outputList", java::Type("List", "java.util"));
+  output_list.type_ptr()->param(java::Type("Output", "org.tensorflow"));
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 
@@ -60,24 +60,24 @@ void RenderMultipleOutputsOp(const string& fname) {
 void RenderMultipleOutputsAndOptionsOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
-  JavaClass op_class("MultipleOutputsAndOptionsOp", "org.tensorflow.op.test");
+  java::Class op_class("MultipleOutputsAndOptionsOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
   tmpl.OpClass(op_class);
 
-  JavaVariable input("input", JavaType("Operand", "org.tensorflow"));
+  java::Variable input("input", java::Type("Operand", "org.tensorflow"));
   input.doc(GenerateDoc("input"));
   tmpl.AddInput(input);
 
-  JavaVariable opt_attr("opt", JavaType("Integer"));
+  java::Variable opt_attr("opt", java::Type("Integer"));
   opt_attr.doc(GenerateDoc("optional attribute"));
   tmpl.AddAttribute(opt_attr, true);
 
-  JavaVariable output("output", JavaType("Output", "org.tensorflow"));
+  java::Variable output("output", java::Type("Output", "org.tensorflow"));
   output.doc(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
-  JavaVariable output_list("outputList", JavaType("List", "java.util"));
-  output_list.type_ptr()->param(JavaType("Output", "org.tensorflow"));
+  java::Variable output_list("outputList", java::Type("List", "java.util"));
+  output_list.type_ptr()->param(java::Type("Output", "org.tensorflow"));
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 
@@ -88,15 +88,15 @@ void RenderMultipleOutputsAndOptionsOp(const string& fname) {
 void RenderSingleOutputOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
-  JavaClass op_class("SingleOutputOp", "org.tensorflow.op.test");
+  java::Class op_class("SingleOutputOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
   tmpl.OpClass(op_class);
 
-  JavaVariable input("input", JavaType("Operand", "org.tensorflow"));
+  java::Variable input("input", java::Type("Operand", "org.tensorflow"));
   input.doc(GenerateDoc("input"));
   tmpl.AddInput(input);
 
-  JavaVariable output("output", JavaType("Output", "org.tensorflow"));
+  java::Variable output("output", java::Type("Output", "org.tensorflow"));
   output.doc(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
@@ -107,16 +107,16 @@ void RenderSingleOutputOp(const string& fname) {
 void RenderSingleOutputListOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
-  JavaClass op_class("SingleOutputListOp", "org.tensorflow.op.test");
+  java::Class op_class("SingleOutputListOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
   tmpl.OpClass(op_class);
 
-  JavaVariable input("input", JavaType("Operand", "org.tensorflow"));
+  java::Variable input("input", java::Type("Operand", "org.tensorflow"));
   input.doc(GenerateDoc("input"));
   tmpl.AddInput(input);
 
-  JavaVariable output_list("outputList", JavaType("List", "java.util"));
-  output_list.type_ptr()->param(JavaType("Output", "org.tensorflow"));
+  java::Variable output_list("outputList", java::Type("List", "java.util"));
+  output_list.type_ptr()->param(java::Type("Output", "org.tensorflow"));
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 
@@ -127,41 +127,41 @@ void RenderSingleOutputListOp(const string& fname) {
 void RenderGenericOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
-  JavaClass op_class("GenericOp", "org.tensorflow.op.test");
+  java::Class op_class("GenericOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
-  JavaType tensor_type("T", true);
+  java::Type tensor_type("T", true);
   op_class.param(tensor_type);
   tmpl.OpClass(op_class);
 
-  JavaType input_type("Operand", "org.tensorflow");
+  java::Type input_type("Operand", "org.tensorflow");
   input_type.param(tensor_type);
-  JavaVariable input("input", input_type);
+  java::Variable input("input", input_type);
   input.doc(GenerateDoc("input"));
   tmpl.AddInput(input);
 
-  JavaType input_list_type("Iterable");
+  java::Type input_list_type("Iterable");
   input_list_type.param(input_type);
-  JavaVariable input_list("inputList", input_list_type);
+  java::Variable input_list("inputList", input_list_type);
   input_list.doc(GenerateDoc("input list"));
   tmpl.AddInput(input_list);
 
-  JavaVariable attr("attr", JavaType("Boolean"));
+  java::Variable attr("attr", java::Type("Boolean"));
   attr.doc(GenerateDoc("attribute"));
   tmpl.AddAttribute(attr, false);
 
-  JavaVariable opt_attr("opt", JavaType("Integer"));
+  java::Variable opt_attr("opt", java::Type("Integer"));
   opt_attr.doc(GenerateDoc("optional attribute"));
   tmpl.AddAttribute(opt_attr, true);
 
-  JavaType output_type("Output", "org.tensorflow");
+  java::Type output_type("Output", "org.tensorflow");
   output_type.param(tensor_type);
-  JavaVariable output("output", output_type);
+  java::Variable output("output", output_type);
   output.doc(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
-  JavaType output_list_type("List", "java.util");
+  java::Type output_list_type("List", "java.util");
   output_list_type.param(output_type);
-  JavaVariable output_list("outputList", output_list_type);
+  java::Variable output_list("outputList", output_list_type);
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 
@@ -172,42 +172,42 @@ void RenderGenericOp(const string& fname) {
 void RenderGenericWithParentOp(const string& fname) {
   OpTemplate tmpl("Test", "test");
 
-  JavaClass op_class("GenericWithParentOp", "org.tensorflow.op.test");
+  java::Class op_class("GenericWithParentOp", "org.tensorflow.op.test");
   op_class.doc(GenerateDoc("class"));
-  JavaType tensor_type("T", true);
-  tensor_type.supertype(JavaType("BigInteger", "java.math"));
+  java::Type tensor_type("T", true);
+  tensor_type.supertype(java::Type("BigInteger", "java.math"));
   op_class.param(tensor_type);
   tmpl.OpClass(op_class);
 
-  JavaType input_type("Operand", "org.tensorflow");
+  java::Type input_type("Operand", "org.tensorflow");
   input_type.param(tensor_type);
-  JavaVariable input("input", input_type);
+  java::Variable input("input", input_type);
   input.doc(GenerateDoc("input"));
   tmpl.AddInput(input);
 
-  JavaType input_list_type("Iterable");
+  java::Type input_list_type("Iterable");
   input_list_type.param(input_type);
-  JavaVariable input_list("inputList", input_list_type);
+  java::Variable input_list("inputList", input_list_type);
   input_list.doc(GenerateDoc("input list"));
   tmpl.AddInput(input_list);
 
-  JavaVariable attr("attr", JavaType("Boolean"));
+  java::Variable attr("attr", java::Type("Boolean"));
   attr.doc(GenerateDoc("attribute"));
   tmpl.AddAttribute(attr, false);
 
-  JavaVariable opt_attr("opt", JavaType("Integer"));
+  java::Variable opt_attr("opt", java::Type("Integer"));
   opt_attr.doc(GenerateDoc("optional attribute"));
   tmpl.AddAttribute(opt_attr, true);
 
-  JavaType output_type("Output", "org.tensorflow");
+  java::Type output_type("Output", "org.tensorflow");
   output_type.param(tensor_type);
-  JavaVariable output("output", output_type);
+  java::Variable output("output", output_type);
   output.doc(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
-  JavaType output_list_type("List", "java.util");
+  java::Type output_list_type("List", "java.util");
   output_list_type.param(output_type);
-  JavaVariable output_list("outputList", output_list_type);
+  java::Variable output_list("outputList", output_list_type);
   output_list.doc(GenerateDoc("output list"));
   tmpl.AddOutput(output_list);
 

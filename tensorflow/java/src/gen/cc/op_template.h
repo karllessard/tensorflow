@@ -22,6 +22,7 @@ limitations under the License.
 
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/types.h"
+#include "tensorflow/java/src/gen/cc/java_defs.h"
 #include "tensorflow/java/src/gen/cc/java_writer.h"
 
 namespace tensorflow {
@@ -38,16 +39,16 @@ class OpTemplate {
 
   void Render(SourceOutputStream* stream);
 
-  void OpClass(const JavaClass& class_tmpl) {
+  void OpClass(const java::Class& class_tmpl) {
     this->op_class = class_tmpl;
   }
-  void AddInput(const JavaVariable& input) {
+  void AddInput(const java::Variable& input) {
     AddVariable(input, &inputs);
   }
-  void AddAttribute(const JavaVariable& attr, bool optional) {
+  void AddAttribute(const java::Variable& attr, bool optional) {
     AddVariable(attr, optional ? &opt_attrs : &attrs);
   }
-  void AddOutput(const JavaVariable& output) {
+  void AddOutput(const java::Variable& output) {
     AddVariable(output, &outputs);
     if (IsList(output)) {
       imports.insert("java.util.Arrays");
@@ -57,24 +58,24 @@ class OpTemplate {
  private:
   const string op_name;
   const string op_group;
-  JavaClass op_class;
+  java::Class op_class;
   std::set<string> imports;
-  std::list<JavaVariable> inputs;
-  std::list<JavaVariable> attrs;
-  std::list<JavaVariable> opt_attrs;
-  std::list<JavaVariable> outputs;
+  std::list<java::Variable> inputs;
+  std::list<java::Variable> attrs;
+  std::list<java::Variable> opt_attrs;
+  std::list<java::Variable> outputs;
 
   RenderMode SelectRenderMode();
-  void RenderOptionsClass(JavaClassWriter* op_writer);
-  void RenderFactoryMethod(JavaClassWriter* op_writer, bool with_options);
-  void RenderMethods(JavaClassWriter* op_writer, RenderMode mode);
-  void RenderConstructor(JavaClassWriter* op_writer);
-  void CollectImports(const JavaType& type);
-  void AddVariable(const JavaVariable& var, std::list<JavaVariable>* list) {
+  void RenderOptionsClass(java::ClassWriter* op_writer);
+  void RenderFactoryMethod(java::ClassWriter* op_writer, bool with_options);
+  void RenderMethods(java::ClassWriter* op_writer, RenderMode mode);
+  void RenderConstructor(java::ClassWriter* op_writer);
+  void CollectImports(const java::Type& type);
+  void AddVariable(const java::Variable& var, std::list<java::Variable>* list) {
     CollectImports(var.type());
     list->push_back(var);
   }
-  static bool IsList(const JavaVariable& var) {
+  static bool IsList(const java::Variable& var) {
     return var.type().name() == "List" || var.type().name() == "Iterable";
   }
 };

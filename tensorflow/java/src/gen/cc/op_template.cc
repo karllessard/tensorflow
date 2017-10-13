@@ -17,6 +17,8 @@ limitations under the License.
 
 #include "tensorflow/java/src/gen/cc/op_template.h"
 #include "tensorflow/core/lib/io/path.h"
+#include "tensorflow/java/src/gen/cc/java_defs.h"
+#include "tensorflow/java/src/gen/cc/java_writer.h"
 
 namespace tensorflow {
 
@@ -41,7 +43,7 @@ void OpTemplate::Render(SourceOutputStream* stream) {
       "org.tensorflow.Output",
       "org.tensorflow.Operand"
     });
-    op_class.interface(JavaType("Operand", "org.tensorflow"));
+    op_class.interface(java::Type("Operand", "org.tensorflow"));
     break;
   }
   case SINGLE_LIST_OUTPUT: {
@@ -49,22 +51,22 @@ void OpTemplate::Render(SourceOutputStream* stream) {
       "java.util.Iterator",
       "org.tensorflow.Operand"
     });
-    JavaType iterable("Iterable");
-    iterable.param(JavaType("Operand", "org.tensorflow"));
+    java::Type iterable("Iterable");
+    iterable.param(java::Type("Operand", "org.tensorflow"));
     op_class.interface(iterable);
     break;
   }
   default:
     break;
   }
-  op_class.supertype(JavaType("PrimitiveOp", "org.tensorflow.op"));
+  op_class.supertype(java::Type("PrimitiveOp", "org.tensorflow.op"));
 
-  JavaWriter writer(stream);
-  string licence_file = io::JoinPath(kJavaGenResourcePath,
+  java::Writer writer(stream);
+  string licence_file = io::JoinPath(java::kGenResourcePath,
       "licence.snippet.java");
   writer.WriteSnippet(licence_file);
-  JavaClassWriter* op_writer =
-      writer.BeginClass(op_class, imports, PUBLIC|FINAL);
+  java::ClassWriter* op_writer =
+      writer.BeginClass(op_class, imports, java::PUBLIC|java::FINAL);
   bool has_options = !opt_attrs.empty();
   if (has_options) {
     RenderOptionsClass(op_writer);
@@ -74,7 +76,7 @@ void OpTemplate::Render(SourceOutputStream* stream) {
     RenderFactoryMethod(op_writer, true);
   }
   RenderMethods(op_writer, mode);
-  op_writer->WriteFields(outputs, PRIVATE);
+  op_writer->WriteFields(outputs, java::PRIVATE);
   RenderConstructor(op_writer);
   op_writer->EndOfClass();
 }
@@ -86,38 +88,38 @@ OpTemplate::RenderMode OpTemplate::SelectRenderMode() {
   return DEFAULT;
 }
 
-void OpTemplate::RenderOptionsClass(JavaClassWriter* op_writer) {
-    JavaClass opt_class("Options");
+void OpTemplate::RenderOptionsClass(java::ClassWriter* op_writer) {
+    java::Class opt_class("Options");
     opt_class.doc_ptr()
         ->brief("Class holding optional attributes of this operation");
 
-    JavaClassWriter* opt_writer =
-        op_writer->BeginInnerClass(opt_class, PUBLIC|STATIC);
+    java::ClassWriter* opt_writer =
+        op_writer->BeginInnerClass(opt_class, java::PUBLIC|java::STATIC);
 
-    std::list<JavaVariable>::const_iterator var;
+    std::list<java::Variable>::const_iterator var;
     for (var = opt_attrs.begin(); var != opt_attrs.end(); ++var) {
-      JavaMethod setter(var->name(), opt_class);
+      java::Method setter(var->name(), opt_class);
       setter.arg(*var);
 
-      opt_writer->BeginMethod(setter, PUBLIC)
+      opt_writer->BeginMethod(setter, java::PUBLIC)
                 ->WriteLine("this." + var->name() + " = " + var->name() + ";")
                 ->WriteLine("return this;")
                 ->EndOfMethod();
     }
-    opt_writer->WriteFields(opt_attrs, PRIVATE);
+    opt_writer->WriteFields(opt_attrs, java::PRIVATE);
 
-    JavaMethod constructor(opt_class.name());
-    opt_writer->BeginMethod(constructor, PRIVATE)->EndOfMethod();
+    java::Method constructor(opt_class.name());
+    opt_writer->BeginMethod(constructor, java::PRIVATE)->EndOfMethod();
     opt_writer->EndOfClass();
 }
 
-void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
+void OpTemplate::RenderFactoryMethod(java::ClassWriter* op_writer,
     bool with_options) {
 
-  JavaVariable scope("scope", JavaType("Scope", "org.tensorflow.op"));
+  java::Variable scope("scope", java::Type("Scope", "org.tensorflow.op"));
   scope.doc_ptr()->brief("Current graph scope");
 
-  JavaMethod factory("create", op_class);
+  java::Method factory("create", op_class);
   factory.doc_ptr()
       ->brief("Factory method to create a class to wrap a new "
           + op_name + " operation to the graph.")
@@ -125,19 +127,19 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   factory.arg(scope)->args(inputs)->args(attrs);
 
   if (with_options) {
-    JavaVariable options("options", JavaType("Options"));
+    java::Variable options("options", java::Type("Options"));
     options.doc_ptr()->brief("an object holding optional attributes values");
     factory.arg(options);
   }
 
-  JavaMethodWriter* factory_writer =
-      op_writer->BeginMethod(factory, PUBLIC|STATIC);
+  java::MethodWriter* factory_writer =
+      op_writer->BeginMethod(factory, java::PUBLIC|java::STATIC);
 
   factory_writer->WriteLine(string("OperationBuilder opBuilder = ")
       + "scope.graph().opBuilder(\"" + op_name
       + "\", scope.makeOpName(\"" + op_name + "\"));");
 
-  std::list<JavaVariable>::const_iterator var;
+  std::list<java::Variable>::const_iterator var;
   for (var = inputs.begin(); var != inputs.end(); ++var) {
     if (IsList(*var)) {
       factory_writer->WriteLine(
@@ -164,62 +166,63 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   factory_writer->EndOfMethod();
 }
 
-void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode) {
-  std::list<JavaVariable>::const_iterator var;
+void OpTemplate::RenderMethods(java::ClassWriter* op_writer, RenderMode mode) {
+  std::list<java::Variable>::const_iterator var;
   // Options setters
   for (var = opt_attrs.begin(); var != opt_attrs.end(); ++var) {
-    JavaMethod setter(var->name(), JavaType("Options"));
+    java::Method setter(var->name(), java::Type("Options"));
     setter.arg(*var);
 
-    op_writer->BeginMethod(setter, PUBLIC|STATIC)
+    op_writer->BeginMethod(setter, java::PUBLIC|java::STATIC)
              ->WriteLine("return new Options()." + var->name() + "("
                  + var->name() + ");")
              ->EndOfMethod();
   }
   // Output getters
   for (var = outputs.begin(); var != outputs.end(); ++var) {
-    JavaMethod getter(var->name(), var->type());
+    java::Method getter(var->name(), var->type());
     getter.doc(var->doc());
 
-    op_writer->BeginMethod(getter, PUBLIC)
+    op_writer->BeginMethod(getter, java::PUBLIC)
              ->WriteLine("return " + var->name() + ";")
              ->EndOfMethod();
   }
   // Implemented methods
   if (mode == SINGLE_OUTPUT) {
-    JavaMethod as_output("asOutput", JavaType("Output", "org.tensorflow"));
-    as_output.annotation(JavaAnnotation("Override"));
+    java::Method as_output("asOutput", java::Type("Output", "org.tensorflow"));
+    as_output.annotation(java::Annotation("Override"));
 
-    op_writer->BeginMethod(as_output, PUBLIC)
+    op_writer->BeginMethod(as_output, java::PUBLIC)
              ->WriteLine("return " + outputs.front().name() + ";")
              ->EndOfMethod();
 
   } else if (mode == SINGLE_LIST_OUTPUT) {
-    JavaType return_type("Iterator", "java.util");
-    return_type.param(JavaType("Operand", "org.tensorflow"));
-    JavaMethod iterator("iterator", return_type);
-    iterator.annotation(JavaAnnotation("Override"));
-    JavaAnnotation suppressWarnings("SuppressWarnings");
+    java::Type return_type("Iterator", "java.util");
+    return_type.param(java::Type("Operand", "org.tensorflow"));
+    java::Method iterator("iterator", return_type);
+    iterator.annotation(java::Annotation("Override"));
+    java::Annotation suppressWarnings("SuppressWarnings");
     suppressWarnings.attrs("{\"rawtypes\", \"unchecked\"}");
     iterator.annotation(suppressWarnings);
 
-    op_writer->BeginMethod(iterator, PUBLIC)
+    op_writer->BeginMethod(iterator, java::PUBLIC)
              ->WriteLine("return (Iterator)" + outputs.front().name()
                  + ".iterator();")
              ->EndOfMethod();
   }
 }
 
-void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
-  JavaVariable operation("operation", JavaType("Operation", "org.tensorflow"));
-  JavaMethod ctor(op_class.name());
+void OpTemplate::RenderConstructor(java::ClassWriter* op_writer) {
+  java::Variable operation("operation",
+      java::Type("Operation", "org.tensorflow"));
+  java::Method ctor(op_class.name());
   ctor.arg(operation);
 
-  JavaMethodWriter* ctor_writer = op_writer->BeginMethod(ctor, PRIVATE);
+  java::MethodWriter* ctor_writer = op_writer->BeginMethod(ctor, java::PRIVATE);
   ctor_writer->WriteLine("super(operation);")
              ->WriteLine("int outputIdx = 0;");
 
-  std::list<JavaVariable>::const_iterator var;
+  std::list<java::Variable>::const_iterator var;
   for (var = outputs.begin(); var != outputs.end(); ++var) {
     if (IsList(*var)) {
       string var_length_name = var->name() + "Length";
@@ -237,8 +240,8 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
   ctor_writer->EndOfMethod();
 }
 
-void OpTemplate::CollectImports(const JavaType& type) {
-  auto import_scanner = [this](const JavaType* type) {
+void OpTemplate::CollectImports(const java::Type& type) {
+  auto import_scanner = [this](const java::Type* type) {
     if (!type->package().empty() && type->package() !=
         this->op_class.package()) {
       this->imports.insert(type->package() + "." + type->name());

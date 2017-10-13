@@ -16,20 +16,21 @@ limitations under the License.
 #include <set>
 
 #include "tensorflow/core/lib/core/status.h"
+#include "tensorflow/java/src/gen/cc/java_defs.h"
 #include "tensorflow/java/src/gen/cc/java_writer.h"
 
 namespace tensorflow {
-
+namespace java {
 namespace {
 
 class GenericTypeScanner {
  public:
   explicit GenericTypeScanner(std::set<string>* declared_names)
     : declared_names_(declared_names) {}
-  const std::list<const JavaType*>& discoveredTypes() const {
+  const std::list<const Type*>& discoveredTypes() const {
     return discovered_types_;
   }
-  void operator()(const JavaType* type) {
+  void operator()(const Type* type) {
     if (type->generic() && !type->name().empty()
         && (declared_names_->find(type->name()) == declared_names_->end())) {
       discovered_types_.push_back(type);
@@ -38,7 +39,7 @@ class GenericTypeScanner {
   }
 
  private:
-  std::list<const JavaType*> discovered_types_;
+  std::list<const Type*> discovered_types_;
   std::set<string>* declared_names_;
 };
 
@@ -58,14 +59,14 @@ void WriteModifiers(int modifiers, SourceOutputStream* stream) {
   }
 }
 
-void WriteType(const JavaType& type, SourceOutputStream* stream) {
+void WriteType(const Type& type, SourceOutputStream* stream) {
   if (type.generic()) {
     stream->Append(type.name().empty() ? "?" : type.name());
   } else {
     stream->Append(type.name());
     if (!type.params().empty()) {
       stream->Append("<");
-      std::list<JavaType>::const_iterator it;
+      std::list<Type>::const_iterator it;
       for (it = type.params().cbegin(); it != type.params().cend(); ++it) {
         if (it != type.params().cbegin()) {
           stream->Append(", ");
@@ -77,22 +78,22 @@ void WriteType(const JavaType& type, SourceOutputStream* stream) {
   }
 }
 
-void WriteGenerics(const std::list<const JavaType*>& generics,
+void WriteGenerics(const std::list<const Type*>& generics,
     SourceOutputStream* stream) {
   stream->Append("<");
-  for (std::list<const JavaType*>::const_iterator it = generics.cbegin();
+  for (std::list<const Type*>::const_iterator it = generics.cbegin();
       it != generics.cend(); ++it) {
     stream->Append((*it)->name());
-    if ((*it)->supertype() != nullptr) {
-      stream->Append(" extends ")->Append((*it)->supertype()->name());
+    if ((*it)->supertype_ptr() != nullptr) {
+      stream->Append(" extends ")->Append((*it)->supertype_ptr()->name());
     }
   }
   stream->Append("> ");
 }
 
-void WriteAnnotations(const std::list<JavaAnnotation>& annotations,
+void WriteAnnotations(const std::list<Annotation>& annotations,
     SourceOutputStream* stream) {
-  std::list<JavaAnnotation>::const_iterator it;
+  std::list<Annotation>::const_iterator it;
   for (it = annotations.cbegin(); it != annotations.cend(); ++it) {
     stream->Append("@" + it->name());
     if (!it->attrs().empty()) {
@@ -102,7 +103,7 @@ void WriteAnnotations(const std::list<JavaAnnotation>& annotations,
   }
 }
 
-void WriteDoc(const JavaDoc& doc, const std::list<JavaVariable>* params,
+void WriteDoc(const Doc& doc, const std::list<Variable>* params,
     SourceOutputStream* stream) {
   stream->Append("/**")->EndOfLine()->Prefix(" * ");
   if (!doc.brief().empty()) {
@@ -116,7 +117,7 @@ void WriteDoc(const JavaDoc& doc, const std::list<JavaVariable>* params,
   }
   if (params != NULL) {
     stream->EndOfLine();
-    std::list<JavaVariable>::const_iterator it;
+    std::list<Variable>::const_iterator it;
     for (it = params->begin(); it != params->end(); ++it) {
       stream->Append("@param ")
             ->Append(it->name())
@@ -133,7 +134,7 @@ void WriteDoc(const JavaDoc& doc, const std::list<JavaVariable>* params,
 
 }  // namespace
 
-JavaClassWriter* JavaClassWriter::Begin(const JavaClass& clazz, int modifiers) {
+ClassWriter* ClassWriter::Begin(const Class& clazz, int modifiers) {
   GenericTypeScanner generics(&declared_generics_names_);
   clazz.Accept(&generics);
   WriteDoc(clazz.doc(), nullptr, stream_);
@@ -145,23 +146,23 @@ JavaClassWriter* JavaClassWriter::Begin(const JavaClass& clazz, int modifiers) {
   if (!generics.discoveredTypes().empty()) {
     WriteGenerics(generics.discoveredTypes(), stream_);
   }
-  if (clazz.supertype() != nullptr) {
+  if (clazz.supertype_ptr() != nullptr) {
     stream_->Append(" extends ");
-    WriteType(*clazz.supertype(), stream_);
+    WriteType(*clazz.supertype_ptr(), stream_);
   }
-  for (std::list<JavaType>::const_iterator it = clazz.interfaces().cbegin();
+  for (std::list<Type>::const_iterator it = clazz.interfaces().cbegin();
       it != clazz.interfaces().cend(); ++it) {
     stream_->Append(it == clazz.interfaces().cbegin() ? " implements " : ", ");
     WriteType(*it, stream_);
   }
-  JavaBaseWriter::BeginBlock();
+  BaseWriter::BeginBlock();
   return this;
 }
 
-JavaClassWriter* JavaClassWriter::WriteFields(
-    const std::list<JavaVariable>& fields, int modifiers) {
+ClassWriter* ClassWriter::WriteFields(
+    const std::list<Variable>& fields, int modifiers) {
   stream_->EndOfLine();
-  std::list<JavaVariable>::const_iterator it;
+  std::list<Variable>::const_iterator it;
   for (it = fields.cbegin(); it != fields.cend(); ++it) {
     WriteModifiers(modifiers, stream_);
     WriteType(it->type(), stream_);
@@ -170,23 +171,23 @@ JavaClassWriter* JavaClassWriter::WriteFields(
   return this;
 }
 
-JavaMethodWriter* JavaClassWriter::BeginMethod(const JavaMethod& method,
+MethodWriter* ClassWriter::BeginMethod(const Method& method,
     int modifiers) {
   stream_->EndOfLine();
   WriteDoc(method.doc(), &method.args(), stream_);
   if (!method.annotations().empty()) {
     WriteAnnotations(method.annotations(), stream_);
   }
-  JavaMethodWriter* method_writer;
+  MethodWriter* method_writer;
   if (modifiers & STATIC) {
-    method_writer = new JavaMethodWriter(stream_);
+    method_writer = new MethodWriter(stream_);
   } else {
-    method_writer = new JavaMethodWriter(stream_, declared_generics_names_);
+    method_writer = new MethodWriter(stream_, declared_generics_names_);
   }
   return method_writer->Begin(method, modifiers);
 }
 
-JavaMethodWriter* JavaMethodWriter::Begin(const JavaMethod& method,
+MethodWriter* MethodWriter::Begin(const Method& method,
     int modifiers) {
   GenericTypeScanner generics(&declared_generics_names_);
   method.Accept(&generics);
@@ -200,7 +201,7 @@ JavaMethodWriter* JavaMethodWriter::Begin(const JavaMethod& method,
   }
   stream_->Append(method.name())->Append("(");
   if (!method.args().empty()) {
-    for (std::list<JavaVariable>::const_iterator arg = method.args().cbegin();
+    for (std::list<Variable>::const_iterator arg = method.args().cbegin();
         arg != method.args().cend(); ++arg) {
       if (arg != method.args().cbegin()) {
         stream_->Append(", ");
@@ -210,23 +211,23 @@ JavaMethodWriter* JavaMethodWriter::Begin(const JavaMethod& method,
     }
   }
   stream_->Append(")");
-  JavaBaseWriter::BeginBlock();
+  BaseWriter::BeginBlock();
   return this;
 }
 
-JavaClassWriter* JavaClassWriter::BeginInnerClass(const JavaClass& clazz,
+ClassWriter* ClassWriter::BeginInnerClass(const Class& clazz,
     int modifiers) {
   stream_->EndOfLine();
-  JavaClassWriter* class_writer;
+  ClassWriter* class_writer;
   if (modifiers & STATIC) {
-    class_writer = new JavaClassWriter(stream_);
+    class_writer = new ClassWriter(stream_);
   } else {
-    class_writer = new JavaClassWriter(stream_, declared_generics_names_);
+    class_writer = new ClassWriter(stream_, declared_generics_names_);
   }
   return class_writer->Begin(clazz, modifiers);
 }
 
-JavaClassWriter* JavaWriter::BeginClass(const JavaClass& clazz,
+ClassWriter* Writer::BeginClass(const Class& clazz,
     const std::set<string>& imports, int modifiers) {
   WriteLine("package " + clazz.package() + ";");
   stream_->EndOfLine();
@@ -235,8 +236,9 @@ JavaClassWriter* JavaWriter::BeginClass(const JavaClass& clazz,
     WriteLine("import " + *it + ";");
   }
   stream_->EndOfLine();
-  JavaClassWriter* class_writer = new JavaClassWriter(stream_);
+  ClassWriter* class_writer = new ClassWriter(stream_);
   return class_writer->Begin(clazz, modifiers);
 }
 
+}  // namespace java
 }  // namespace tensorflow

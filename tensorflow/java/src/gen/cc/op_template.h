@@ -30,7 +30,7 @@ namespace java {
 
 class OpTemplate {
  public:
-  OpTemplate(const string& op_name, const string& op_group);
+  OpTemplate(const string& op_name);
   virtual ~OpTemplate() {}
 
   void RenderTo(WritableFile* file);
@@ -41,15 +41,18 @@ class OpTemplate {
   }
   void AddInput(const JavaVar& input) {
     AddVariable(input, &inputs_);
-  }
-  void AddAttribute(const JavaVar& attr, bool optional) {
-    AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
+    if (IsList(input)) {
+      imports_.insert(Java::Class("Operands", "org.tensorflow.op"));
+    }
   }
   void AddOutput(const JavaVar& output) {
     AddVariable(output, &outputs_);
     if (IsList(output)) {
       imports_.insert(Java::Class("Arrays", "java.util"));
     }
+  }
+  void AddAttribute(const JavaVar& attr, bool optional) {
+    AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
   }
 
  private:
@@ -59,7 +62,6 @@ class OpTemplate {
     SINGLE_LIST_OUTPUT
   };
   const string op_name_;
-  const string op_group_;
   JavaType op_class_;
   std::set<JavaType> imports_;
   std::vector<JavaVar> inputs_;
@@ -68,11 +70,11 @@ class OpTemplate {
   std::vector<JavaVar> outputs_;
   std::vector<JavaType> outputs_classes_;
 
-  RenderMode SelectRenderMode();
-  void Render(SourceWriter* src_writer, RenderMode mode);
+  void Render(SourceWriter* src_writer);
   void RenderOptionsClass(JavaClassWriter* op_writer);
   void RenderFactoryMethod(JavaClassWriter* op_writer, bool with_options);
-  void RenderMethods(JavaClassWriter* op_writer, RenderMode mode);
+  void RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
+      const JavaType& output_tensor_type);
   void RenderConstructor(JavaClassWriter* op_writer);
   void CollectImports(const JavaType& type);
   void AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {

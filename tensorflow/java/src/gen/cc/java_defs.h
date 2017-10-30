@@ -104,8 +104,11 @@ class JavaType {
   template <class TypeScanner>
   void Scan(TypeScanner* scanner) const;
 
-  /// For sets
-  bool operator<(const JavaType& type) const { return name() < type.name(); }
+  bool operator<(const JavaType& type) const { return name_ < type.name_; }
+  bool operator!=(const JavaType& type) const { return !(*this == type); }
+  bool operator==(const JavaType& type) const {
+    return name_ == type.name_ && package_ == type.package_;
+  }
 
  private:
   Kind kind_ = NONE;

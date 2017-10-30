@@ -24,67 +24,68 @@ limitations under the License.
 namespace tensorflow {
 namespace java {
 
-OpTemplate::OpTemplate(const string& op_name, const string& op_group)
-  : op_name_(op_name), op_group_(op_group) {
+OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
   // Import types we already know of
   imports_.insert({
     Java::Class("PrimitiveOp", "org.tensorflow.op"),
     Java::Class("Operation", "org.tensorflow"),
     Java::Class("OperationBuilder", "org.tensorflow"),
     Java::Class("Scope", "org.tensorflow.op"),
-    Java::Class("Operands", "org.tensorflow.op"),
   });
 }
 
 void OpTemplate::RenderTo(WritableFile* file) {
   SourceFileWriter src_writer(file);
-  Render(&src_writer, SelectRenderMode());
+  Render(&src_writer);
 }
 
 void OpTemplate::RenderTo(string* buffer) {
   SourceBufferWriter src_writer(buffer);
-  Render(&src_writer, SelectRenderMode());
+  Render(&src_writer);
 }
 
-OpTemplate::RenderMode OpTemplate::SelectRenderMode() {
+void OpTemplate::Render(SourceWriter* src_writer) {
   RenderMode mode = DEFAULT;
   if (outputs_.size() == 1) {
-    const JavaVar& output = outputs_.front();
-
-    if (IsList(output)) {
-      mode = SINGLE_LIST_OUTPUT;
-      JavaType operand = Java::Class("Operand", "org.tensorflow");
-      JavaType tensor_type(output.type().params().front().params().front());
+    mode = IsList(outputs_.front()) ? SINGLE_LIST_OUTPUT : SINGLE_OUTPUT;
+  }
+  JavaType op_class(op_class_);  // the effective op class
+  op_class.supertype(Java::Class("PrimitiveOp", "org.tensorflow.op"));
+  JavaType tensor_type;
+  switch (mode) {
+    case SINGLE_OUTPUT: {
+      JavaType output_type = outputs_.front().type();
+      tensor_type = output_type.params().front();
       if (Java::IsWildcard(tensor_type)) {
-        tensor_type = Java::Class("Object"); // cannot use wildcard in interface
+        tensor_type = Java::Class("Object");
       }
+      JavaType operand = Java::Interface("Operand", "org.tensorflow");
       operand.param(tensor_type);
-      op_class_.supertype(Java::IterableOf(operand));
-      imports_.insert(operand);
+      op_class.supertype(operand);
+      break;
+    }
+    case SINGLE_LIST_OUTPUT: {
+      JavaType output_type = outputs_.front().type();
+      tensor_type = output_type.params().front().params().front();
+      if (Java::IsWildcard(tensor_type)) {
+        tensor_type = Java::Class("Object");
+      }
+      JavaType operand = Java::Interface("Operand", "org.tensorflow");
+      operand.param(tensor_type);
+      op_class.supertype(Java::IterableOf(operand));
       imports_.insert(Java::Interface("Iterator", "java.util"));
-
-    } else {
-      mode = SINGLE_OUTPUT;
-      JavaType operand = Java::Class("Operand", "org.tensorflow");
-      JavaType tensor_type(output.type().params().front());
-      if (Java::IsWildcard(tensor_type)) {
-        tensor_type = Java::Class("Object"); // cannot use wildcard in interface
-      }
-      operand.param(tensor_type);
-      op_class_.supertype(operand);
-      imports_.insert(operand);
+      break;
+    }
+    default: {
+      break;
     }
   }
-  op_class_.supertype(Java::Class("PrimitiveOp", "org.tensorflow.op"));
-  return mode;
-}
-
-void OpTemplate::Render(SourceWriter* src_writer, RenderMode mode) {
+  CollectImports(op_class);
   JavaWriter writer(src_writer);
   writer.WriteSnippet(
       io::JoinPath(kGenResourcePath, "licence.snippet.java"));
   JavaClassWriter* op_writer =
-      writer.BeginClass(op_class_, imports_, PUBLIC|FINAL);
+      writer.BeginClass(op_class, imports_, PUBLIC|FINAL);
   bool has_options = !opt_attrs_.empty();
   if (has_options) {
     RenderOptionsClass(op_writer);
@@ -93,7 +94,7 @@ void OpTemplate::Render(SourceWriter* src_writer, RenderMode mode) {
   if (has_options) {
     RenderFactoryMethod(op_writer, true);
   }
-  RenderMethods(op_writer, mode);
+  RenderMethods(op_writer, mode, tensor_type);
   op_writer->WriteFields(outputs_, PRIVATE);
   RenderConstructor(op_writer);
   op_writer->EndOfClass();
@@ -139,7 +140,7 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   factory.args(attrs_);
 
   // For each output variable whose generic is not inferred by another operand,
-  // require the user to pass its class explicitly for casting.
+  // we require the user to pass its type explicitly
   std::set<string> inferred_generic_names;
   GenericTypeScanner inputs_scanner(&inferred_generic_names);
   factory.ScanTypes(&inputs_scanner, true);
@@ -152,8 +153,7 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
     std::vector<const JavaType*>::const_iterator generic_it;
     for (generic_it = output_scanner.discoveredTypes().cbegin();
         generic_it != output_scanner.discoveredTypes().cend(); ++generic_it) {
-      JavaVar output_class =
-         Java::Var(var->name() + "CastType", Java::ClassOf(**generic_it));
+      JavaVar output_class = Java::Var(var->name(), Java::ClassOf(**generic_it));
       factory.arg(output_class);
     }
   }
@@ -194,63 +194,63 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   }
   factory_writer->Write("return new ")
       ->Write(op_class_)
-      ->WriteLine("(opBuilder.build());");
-  factory_writer->EndOfMethod();
+      ->WriteLine("(opBuilder.build());")
+      ->EndOfMethod();
 }
 
-void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode) {
+void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
+    const JavaType& output_tensor_type) {
   std::vector<JavaVar>::const_iterator var;
+
   // Options setters
   for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
     JavaMethod setter = Java::Method(var->name(), Java::Class("Options"));
     setter.arg(*var);
-
     op_writer->BeginMethod(setter, PUBLIC|STATIC)
         ->WriteLine("return new Options()." + var->name() + "("
             + var->name() + ");")
         ->EndOfMethod();
   }
+
   // Output getters
   for (var = outputs_.begin(); var != outputs_.end(); ++var) {
     JavaMethod getter = Java::Method(var->name(), var->type());
     getter.doc(var->doc());
-
     op_writer->BeginMethod(getter, PUBLIC)
         ->WriteLine("return " + var->name() + ";")
         ->EndOfMethod();
   }
-  // Implemented methods
+
+  // Interface methods
   if (mode == SINGLE_OUTPUT) {
-    JavaType return_type(outputs_.front().type());
-    bool cast_required = false;
-    if (Java::IsWildcard(return_type.params().front())) {
-      return_type = Java::Class("Output", "org.tensorflow");
-      return_type.param(Java::Class("Object"));
-      cast_required = true;
-    }
+    JavaType return_type = Java::Class("Output", "org.tensorflow");
+    return_type.param(output_tensor_type);
     JavaMethod as_output = Java::Method("asOutput", return_type);
     as_output.annotation(Java::Annot("Override"));
-
     JavaMethodWriter* method_writer =
         op_writer->BeginMethod(as_output, PUBLIC)->Write("return ");
-    if (cast_required) {
+
+    // cast the output if not of the same tensor type
+    JavaVar output = outputs_.front();
+    if (output_tensor_type != output.type().params().front()) {
       method_writer->Write("(")->Write(return_type)->Write(") ");
     }
-    method_writer->WriteLine(outputs_.front().name() + ";")->EndOfMethod();
+    method_writer->WriteLine(output.name() + ";")->EndOfMethod();
 
   } else if (mode == SINGLE_LIST_OUTPUT) {
-    JavaType operand = Java::Class("Operand", "org.tensorflow")
-        .param(outputs_.front().type().params().front().params().front());
-    JavaType return_type = Java::Class("Iterator", "java.util")
-        .param(operand);
+    JavaType operand = Java::Interface("Operand", "org.tensorflow");
+    operand.param(output_tensor_type);
+    JavaType return_type = Java::Interface("Iterator", "java.util");
+    return_type.param(operand);
     JavaMethod iterator = Java::Method("iterator", return_type)
         .annotation(Java::Annot("Override"))
         .annotation(Java::Annot("SuppressWarnings")
             .attrs("{\"rawtypes\", \"unchecked\"}"));
 
+    // cast the output list using a raw List
     op_writer->BeginMethod(iterator, PUBLIC)
-        ->WriteLine("return (" + return_type.name() + ") " + outputs_.front().name()
-            + ".iterator();")
+        ->WriteLine("return (" + return_type.name() + ") "
+            + outputs_.front().name() + ".iterator();")
         ->EndOfMethod();
   }
 }
@@ -270,7 +270,8 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
       string var_length_name = var->name() + "Length";
       ctor_writer->WriteLine("int " + var_length_name
           + " = operation.outputListLength(\"" + var->name() + "\");");
-      // output list must be casted explicitly
+
+      // output lists must be cast explicitly
       ctor_writer->Write(var->name() + " = Arrays.asList((")
           ->Write(var->type().params().front())
           ->Write("[]) operation.outputList(outputIdx, ")
@@ -278,7 +279,6 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
       ctor_writer->WriteLine("outputIdx += " + var_length_name + ";");
 
     } else {
-      // output is casted implicitly by operation.output()
       ctor_writer->WriteLine(var->name() + " = operation.output(outputIdx++);");
     }
   }

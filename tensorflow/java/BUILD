@@ -14,6 +14,7 @@ load(
     "tf_copts",
     "tf_custom_op_library",
     "tf_java_test",
+    "tf_cc_test",
     "tf_cc_tests",
 )
 
@@ -327,10 +328,56 @@ filegroup(
     ]),
 )
 
+java_test(
+    name = "OpTemplateCompilationTest",
+    size = "small",
+    srcs = ["src/test/java/org/tensorflow/op/gen/OpTemplateCompilationTest.java"],
+    javacopts = JAVACOPTS,
+    test_class = "org.tensorflow.op.gen.OpTemplateCompilationTest",
+    resource_jars = [":op_template_test_gen"],
+    deps = [
+        ":tensorflow",
+        ":testutil",
+        "@junit",
+        "@com_google_testing_compile",
+        "@com_google_truth",
+        ":op_template_test_gen",
+    ],
+)
+
+genrule(
+    name="op_template_test_gen",
+    outs=["ops/op_template_tests.jar"],
+    tools=["src_gen_cc_op_template_test", "@local_jdk//:jar", "@local_jdk//:jdk"],
+    cmd="$(location :src_gen_cc_op_template_test) $(GENDIR) && "
+        + "$(location @local_jdk//:jar) cMf $(location :ops/op_template_tests.jar) -C $(@D) test",
+    testonly=1,
+)
+
+tf_cc_test(
+    name = "src_gen_cc_op_template_test",
+    size = "small",
+    srcs = ["src/gen/cc/op_template_test.cc"],
+    deps = [
+        ":java_op_gen_lib",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:test",
+    ],
+    testonly=1
+)
+
 tf_cc_tests(
     name = "java_op_gen_cc_tests",
     size = "small",
-    srcs = glob(["src/gen/cc/*_test.cc"]),
+    srcs = glob(
+        [
+            "src/gen/cc/*_test.cc",
+        ],
+        exclude = [
+            "src/gen/cc/op_template_test.cc",
+        ],
+    ),
     deps = [
         ":java_op_gen_lib",
         "//tensorflow/core:framework",

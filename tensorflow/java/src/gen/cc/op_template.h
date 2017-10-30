@@ -1,0 +1,90 @@
+/* Copyright 2017 The TensorFlow Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+#ifndef TENSORFLOW_JAVA_SRC_GEN_CC_OP_TEMPLATE_H_
+#define TENSORFLOW_JAVA_SRC_GEN_CC_OP_TEMPLATE_H_
+
+#include <string>
+#include <set>
+#include <vector>
+
+#include "tensorflow/core/platform/env.h"
+#include "tensorflow/core/platform/types.h"
+#include "tensorflow/java/src/gen/cc/java_defs.h"
+#include "tensorflow/java/src/gen/cc/java_writer.h"
+
+namespace tensorflow {
+namespace java {
+
+class OpTemplate {
+ public:
+  OpTemplate(const string& op_name, const string& op_group);
+  virtual ~OpTemplate() {}
+
+  void RenderTo(WritableFile* file);
+  void RenderTo(string* buffer);
+
+  void OpClass(const JavaType& op_class) {
+    op_class_ = op_class;
+  }
+  void AddInput(const JavaVar& input) {
+    AddVariable(input, &inputs_);
+  }
+  void AddAttribute(const JavaVar& attr, bool optional) {
+    AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
+  }
+  void AddOutput(const JavaVar& output) {
+    AddVariable(output, &outputs_);
+    if (IsList(output)) {
+      imports_.insert(Java::Class("Arrays", "java.util"));
+    }
+  }
+
+ private:
+  enum RenderMode {
+    DEFAULT,
+    SINGLE_OUTPUT,
+    SINGLE_LIST_OUTPUT
+  };
+  const string op_name_;
+  const string op_group_;
+  JavaType op_class_;
+  std::set<JavaType> imports_;
+  std::vector<JavaVar> inputs_;
+  std::vector<JavaVar> attrs_;
+  std::vector<JavaVar> opt_attrs_;
+  std::vector<JavaVar> outputs_;
+  std::vector<JavaType> outputs_classes_;
+
+  RenderMode SelectRenderMode();
+  void Render(SourceWriter* src_writer, RenderMode mode);
+  void RenderOptionsClass(JavaClassWriter* op_writer);
+  void RenderFactoryMethod(JavaClassWriter* op_writer, bool with_options);
+  void RenderMethods(JavaClassWriter* op_writer, RenderMode mode);
+  void RenderConstructor(JavaClassWriter* op_writer);
+  void CollectImports(const JavaType& type);
+  void AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {
+    CollectImports(var.type());
+    list->push_back(var);
+  }
+  static bool IsList(const JavaVar& var) {
+    return var.type().name() == "List" || var.type().name() == "Iterable";
+  }
+};
+
+}  // namespace java
+}  // namespace tensorflow
+
+#endif  // TENSORFLOW_JAVA_SRC_GEN_CC_OP_TEMPLATE_H_

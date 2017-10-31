@@ -27,7 +27,6 @@ namespace java {
 OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
   // Import types we already know of
   imports_.insert({
-    Java::Class("PrimitiveOp", "org.tensorflow.op"),
     Java::Class("Operation", "org.tensorflow"),
     Java::Class("OperationBuilder", "org.tensorflow"),
     Java::Class("Scope", "org.tensorflow.op"),

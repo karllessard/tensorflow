@@ -28,29 +28,50 @@ limitations under the License.
 namespace tensorflow {
 namespace java {
 
+/// \brief Template for rendering Java operations source code
+///
+/// The ops generator collects operation data from the protobuf definitions
+/// and store it to this template. Once all data is collected, the template
+/// is rendered to the selected destination (a file or, for tests, in memory).
 class OpTemplate {
  public:
   OpTemplate(const string& op_name);
   virtual ~OpTemplate() {}
 
+  /// \brief Render this template to a file
   void RenderTo(WritableFile* file);
+
+  /// \brief Render this templte to a memory buffer
   void RenderTo(string* buffer);
 
+  /// \brief Define the operation class to render
+  ///
+  /// Note that no supertype should be set explicitly in the class definition
+  /// since they will (and must be) handle by the template itself.
   void OpClass(const JavaType& op_class) {
     op_class_ = op_class;
   }
+
+  /// \brief Define an input to the operation
   void AddInput(const JavaVar& input) {
     AddVariable(input, &inputs_);
     if (IsList(input)) {
       imports_.insert(Java::Class("Operands", "org.tensorflow.op"));
     }
   }
+
+  /// \brief Define an output of the operation
   void AddOutput(const JavaVar& output) {
     AddVariable(output, &outputs_);
     if (IsList(output)) {
       imports_.insert(Java::Class("Arrays", "java.util"));
     }
   }
+
+  /// \brief Define an attribute to the operation
+  ///
+  /// If the attribute has a default value when absent, it should be flagged
+  /// as optional
   void AddAttribute(const JavaVar& attr, bool optional) {
     AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
   }

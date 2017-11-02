@@ -19,6 +19,7 @@ limitations under the License.
 #include <string>
 #include <set>
 #include <vector>
+#include <map>
 
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/types.h"
@@ -53,20 +54,10 @@ class OpTemplate {
   }
 
   /// \brief Define an input to the operation
-  void AddInput(const JavaVar& input) {
-    AddVariable(input, &inputs_);
-    if (Java::IsCollection(input.type())) {
-      imports_.insert(Java::Class("Operands", "org.tensorflow.op"));
-    }
-  }
+  void AddInput(const JavaVar& input);
 
   /// \brief Define an output of the operation
-  void AddOutput(const JavaVar& output) {
-    AddVariable(output, &outputs_);
-    if (Java::IsCollection(output.type())) {
-      imports_.insert(Java::Class("Arrays", "java.util"));
-    }
-  }
+  void AddOutput(const JavaVar& output, bool declare_type = false);
 
   /// \brief Define an attribute to the operation
   ///
@@ -89,19 +80,16 @@ class OpTemplate {
   std::vector<JavaVar> attrs_;
   std::vector<JavaVar> opt_attrs_;
   std::vector<JavaVar> outputs_;
-  std::vector<JavaType> outputs_classes_;
+  std::map<JavaType, JavaVar> declared_output_types_;
 
+  void AddVariable(const JavaVar& var, std::vector<JavaVar>* list);
+  void CollectImports(const JavaType& type);
   void Render(SourceWriter* src_writer);
   void RenderOptionsClass(JavaClassWriter* op_writer);
   void RenderFactoryMethod(JavaClassWriter* op_writer, bool with_options);
   void RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
-      const JavaType& output_tensor_type);
+      const JavaType& single_type);
   void RenderConstructor(JavaClassWriter* op_writer);
-  void CollectImports(const JavaType& type);
-  void AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {
-    CollectImports(var.type());
-    list->push_back(var);
-  }
 };
 
 }  // namespace java

@@ -40,26 +40,20 @@ public class OpTemplateCompilationTest {
   }
 
   @Test
-  public void compileStronglyTypedInputListOp() {
-    Compilation compile = compile("test/StronglyTypedInputListOp.java");
+  public void compileTypedInputListOp() {
+    Compilation compile = compile("test/TypedInputListOp.java");
     assertThat(compile).succeededWithoutWarnings();
   }
 
   @Test
-  public void compileGenericWithParentOp() {
-    Compilation compile = compile("test/GenericWithParentOp.java");
+  public void compileWildcardInputListOp() {
+    Compilation compile = compile("test/WildcardInputListOp.java");
     assertThat(compile).succeededWithoutWarnings();
   }
 
   @Test
-  public void compileGenericWithWildcardOp() {
-    Compilation compile = compile("test/GenericWithWildcardOp.java");
-    assertThat(compile).succeededWithoutWarnings();
-  }
-
-  @Test
-  public void compileGenericWithExplicitCastOp() {
-    Compilation compile = compile("test/GenericWithExplicitCastOp.java");
+  public void compileDeclaredOutputTypeOp() {
+    Compilation compile = compile("test/DeclaredOutputTypeOp.java");
     assertThat(compile).succeededWithoutWarnings();
   }
 

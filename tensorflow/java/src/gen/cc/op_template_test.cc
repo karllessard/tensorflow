@@ -38,7 +38,8 @@ JavaDoc GenerateDoc(const string& name) {
 void RenderSingleOutputOp(const TestFunc& tester) {
   OpTemplate tmpl("Test");
 
-  JavaType tensor_type = Java::Generic("T");
+  JavaType tensor_type = Java::Generic("T")
+      .supertype(Java::Class("Number"));
   JavaType op_class = Java::Class("SingleOutputOp", "org.tensorflow.op.test")
       .doc(GenerateDoc("class"))
       .param(tensor_type)
@@ -64,7 +65,8 @@ void RenderSingleOutputOp(const TestFunc& tester) {
 void RenderSingleOutputListOp(const TestFunc& tester) {
   OpTemplate tmpl("Test");
 
-  JavaType tensor_type = Java::Generic("T");
+  JavaType tensor_type = Java::Generic("T")
+      .supertype(Java::Class("Number"));
   JavaType op_class = Java::Class("SingleOutputListOp", "org.tensorflow.op.test")
       .doc(GenerateDoc("class"))
       .param(tensor_type)
@@ -163,12 +165,12 @@ void RenderOptionalAndMandatoryAttributesOp(const TestFunc& tester) {
   tester(&tmpl, op_class.name());
 }
 
-void RenderStronglyTypedInputListOp(const TestFunc& tester) {
+void RenderTypedInputListOp(const TestFunc& tester) {
   OpTemplate tmpl("Test");
 
   JavaType tensor_type = Java::Class("Integer");
   JavaType op_class =
-      Java::Class("StronglyTypedInputListOp", "org.tensorflow.op.test")
+      Java::Class("TypedInputListOp", "org.tensorflow.op.test")
           .doc(GenerateDoc("class"))
           .annotation(Java::Annot("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
@@ -189,40 +191,11 @@ void RenderStronglyTypedInputListOp(const TestFunc& tester) {
   tester(&tmpl, op_class.name());
 }
 
-void RenderGenericWithParentOp(const TestFunc& tester) {
-  OpTemplate tmpl("Test");
-
-  JavaType tensor_type = Java::Generic("T");
-  tensor_type.supertype(Java::Class("Number"));
-
-  JavaType op_class =
-      Java::Class("GenericWithParentOp", "org.tensorflow.op.test")
-          .doc(GenerateDoc("class"))
-          .param(tensor_type)
-          .annotation(Java::Annot("Operator", "org.tensorflow.op.annotation")
-              .attrs("group = \"test\""));
-  tmpl.OpClass(op_class);
-
-  JavaType input_type = Java::Interface("Operand", "org.tensorflow")
-      .param(tensor_type);
-  JavaVar input = Java::Var("input", input_type)
-      .doc(GenerateDoc("input"));
-  tmpl.AddInput(input);
-
-  JavaType output_type = Java::Class("Output", "org.tensorflow")
-      .param(tensor_type);
-  JavaVar output = Java::Var("output", output_type)
-      .doc(GenerateDoc("output"));
-  tmpl.AddOutput(output);
-
-  tester(&tmpl, op_class.name());
-}
-
-void RenderGenericWithWildcardOp(const TestFunc& tester) {
+void RenderWildcardInputListOp(const TestFunc& tester) {
   OpTemplate tmpl("Test");
 
   JavaType op_class =
-      Java::Class("GenericWithWildcardOp", "org.tensorflow.op.test")
+      Java::Class("WildcardInputListOp", "org.tensorflow.op.test")
           .doc(GenerateDoc("class"))
           .annotation(Java::Annot("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
@@ -230,9 +203,9 @@ void RenderGenericWithWildcardOp(const TestFunc& tester) {
 
   JavaType input_type = Java::Interface("Operand", "org.tensorflow")
       .param(Java::Wildcard());
-  JavaVar input = Java::Var("input", input_type)
-      .doc(GenerateDoc("input"));
-  tmpl.AddInput(input);
+  JavaVar input_list = Java::Var("inputList", Java::IterableOf(input_type))
+      .doc(GenerateDoc("inputList"));
+  tmpl.AddInput(input_list);
 
   JavaType output_type = Java::Class("Output", "org.tensorflow")
       .param(Java::Wildcard());
@@ -243,12 +216,13 @@ void RenderGenericWithWildcardOp(const TestFunc& tester) {
   tester(&tmpl, op_class.name());
 }
 
-void RenderGenericWithExplicitCastOp(const TestFunc& tester) {
+void RenderDeclaredOutputTypeOp(const TestFunc& tester) {
   OpTemplate tmpl("Test");
 
-  JavaType tensor_type = Java::Generic("T");
+  JavaType tensor_type = Java::Generic("T")
+      .supertype(Java::Class("Number"));
   JavaType op_class =
-      Java::Class("GenericWithExplicitCastOp", "org.tensorflow.op.test")
+      Java::Class("DeclaredOutputTypeOp", "org.tensorflow.op.test")
           .param(tensor_type)
           .doc(GenerateDoc("class"))
           .annotation(Java::Annot("Operator", "org.tensorflow.op.annotation")
@@ -265,7 +239,7 @@ void RenderGenericWithExplicitCastOp(const TestFunc& tester) {
       .param(tensor_type);
   JavaVar output = Java::Var("output", output_type)
       .doc(GenerateDoc("output"));
-  tmpl.AddOutput(output);
+  tmpl.AddOutput(output, true);
 
   tester(&tmpl, op_class.name());
 }
@@ -306,8 +280,7 @@ int main(int argc, char** argv) {
   tensorflow::java::RenderSingleOutputListOp(tester);
   tensorflow::java::RenderMultipleAndMixedOutputsOp(tester);
   tensorflow::java::RenderOptionalAndMandatoryAttributesOp(tester);
-  tensorflow::java::RenderStronglyTypedInputListOp(tester);
-  tensorflow::java::RenderGenericWithParentOp(tester);
-  tensorflow::java::RenderGenericWithWildcardOp(tester);
-  tensorflow::java::RenderGenericWithExplicitCastOp(tester);
+  tensorflow::java::RenderTypedInputListOp(tester);
+  tensorflow::java::RenderWildcardInputListOp(tester);
+  tensorflow::java::RenderDeclaredOutputTypeOp(tester);
 }

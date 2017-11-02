@@ -23,6 +23,22 @@ limitations under the License.
 
 namespace tensorflow {
 namespace java {
+namespace {
+
+JavaType FindTensorType(const JavaType& operand_type) {
+  JavaType tensor_type;
+  if (Java::IsCollection(operand_type)) {
+    tensor_type = operand_type.params().front().params().front();
+  } else {
+    tensor_type = operand_type.params().front();
+  }
+  if (Java::IsWildcard(tensor_type)) {
+    tensor_type = Java::Class("Object");
+  }
+  return tensor_type;
+}
+
+}  // namespace
 
 OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
   // Import types we already know of
@@ -31,6 +47,47 @@ OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
     Java::Class("OperationBuilder", "org.tensorflow"),
     Java::Class("Scope", "org.tensorflow.op"),
   });
+}
+
+void OpTemplate::AddInput(const JavaVar& input) {
+  AddVariable(input, &inputs_);
+  if (Java::IsCollection(input.type())) {
+    imports_.insert(Java::Class("Operands", "org.tensorflow.op"));
+  }
+}
+
+void OpTemplate::AddOutput(const JavaVar& output, bool declare_type) {
+  AddVariable(output, &outputs_);
+  if (Java::IsCollection(output.type())) {
+    imports_.insert(Java::Class("Arrays", "java.util"));
+  }
+  if (declare_type) {
+    JavaType tensor_type = FindTensorType(output.type());
+    std::map<JavaType, JavaVar>::iterator it = declared_output_types_.find(tensor_type);
+    if (it == declared_output_types_.end()) {
+      string var_name("outputType" + tensor_type.name());
+      JavaVar var = Java::Var(var_name, Java::ClassOf(tensor_type));
+      var.doc_ptr()->brief("type for \"" + output.name() + "\"");
+      declared_output_types_.insert(std::pair<JavaType, JavaVar>(tensor_type, var));
+    } else {
+      const string current_doc = it->second.doc().brief();
+      it->second.doc_ptr()->brief(current_doc + " and \"" + output.name() + "\"");
+    }
+  }
+}
+
+void OpTemplate::AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {
+  CollectImports(var.type());
+  list->push_back(var);
+}
+
+void OpTemplate::CollectImports(const JavaType& type) {
+  auto import_scanner = [this](const JavaType* type) {
+    if (!type->package().empty()) {
+      this->imports_.insert(*type);
+    }
+  };
+  type.Scan(&import_scanner);
 }
 
 void OpTemplate::RenderTo(WritableFile* file) {
@@ -44,43 +101,26 @@ void OpTemplate::RenderTo(string* buffer) {
 }
 
 void OpTemplate::Render(SourceWriter* src_writer) {
-  RenderMode mode = DEFAULT;
-  if (outputs_.size() == 1) {
-    mode = Java::IsCollection(outputs_.front().type())
-        ? SINGLE_LIST_OUTPUT : SINGLE_OUTPUT;
-  }
-
-  // Complete the effective op class to render by setting supertypes
+  // Complete the effective op class to render by selecting supertypes
   JavaType op_class(op_class_);
   op_class.supertype(Java::Class("PrimitiveOp", "org.tensorflow.op"));
-  JavaType tensor_type;
-  switch (mode) {
-    case SINGLE_OUTPUT: {
-      JavaType output_type = outputs_.front().type();
-      tensor_type = output_type.params().front();
-      if (Java::IsWildcard(tensor_type)) {
-        tensor_type = Java::Class("Object");
-      }
+  JavaType single_type;
+
+  RenderMode mode = DEFAULT;
+  if (outputs_.size() == 1) {
+      const JavaVar& output = outputs_.front();
+      single_type = FindTensorType(output.type());
       JavaType operand = Java::Interface("Operand", "org.tensorflow");
-      operand.param(tensor_type);
-      op_class.supertype(operand);
-      break;
-    }
-    case SINGLE_LIST_OUTPUT: {
-      JavaType output_type = outputs_.front().type();
-      tensor_type = output_type.params().front().params().front();
-      if (Java::IsWildcard(tensor_type)) {
-        tensor_type = Java::Class("Object");
+      operand.param(single_type);
+
+      if (Java::IsCollection(output.type())) {
+        mode = SINGLE_LIST_OUTPUT;
+        op_class.supertype(Java::IterableOf(operand));
+        imports_.insert(Java::Interface("Iterator", "java.util"));
+      } else {
+        mode = SINGLE_OUTPUT;
+        op_class.supertype(operand);
       }
-      JavaType operand = Java::Interface("Operand", "org.tensorflow");
-      operand.param(tensor_type);
-      op_class.supertype(Java::IterableOf(operand));
-      imports_.insert(Java::Interface("Iterator", "java.util"));
-      break;
-    }
-    default: {
-      break;
-    }
   }
   CollectImports(op_class);
 
@@ -98,7 +138,7 @@ void OpTemplate::Render(SourceWriter* src_writer) {
   if (has_options) {
     RenderFactoryMethod(op_writer, true);
   }
-  RenderMethods(op_writer, mode, tensor_type);
+  RenderMethods(op_writer, mode, single_type);
   op_writer->WriteFields(outputs_, PRIVATE);
   RenderConstructor(op_writer);
   op_writer->EndOfClass();
@@ -140,41 +180,23 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
           + op_name_ + " operation to the graph.");
   factory.doc_ptr()->value("a new instance of " + op_class_.name());
   factory.arg(scope);
+  std::map<JavaType, JavaVar>::const_iterator it;
+  for (it = declared_output_types_.cbegin(); it != declared_output_types_.cend(); ++it) {
+    factory.arg(it->second);
+  }
   factory.args(inputs_);
   factory.args(attrs_);
-
-  // For each output variable whose generic is not inferred by another operand,
-  // we require the user to pass its type explicitly
-  std::set<string> inferred_generic_names;
-  GenericTypeScanner inputs_scanner(&inferred_generic_names);
-  factory.ScanTypes(&inputs_scanner, true);
-
-  std::vector<JavaVar>::const_iterator var;
-  for (var = outputs_.begin(); var != outputs_.end(); ++var) {
-    GenericTypeScanner output_scanner(&inferred_generic_names);
-    var->type().Scan(&output_scanner);
-
-    std::vector<const JavaType*>::const_iterator generic_it;
-    for (generic_it = output_scanner.discoveredTypes().cbegin();
-        generic_it != output_scanner.discoveredTypes().cend(); ++generic_it) {
-      JavaVar output_class = Java::Var(var->name(), Java::ClassOf(**generic_it));
-      factory.arg(output_class);
-    }
-  }
-
   if (with_options) {
     JavaVar options = Java::Var("options", Java::Class("Options"));
     options.doc_ptr()->brief("an object holding optional attributes values");
     factory.arg(options);
   }
-
   JavaMethodWriter* factory_writer =
       op_writer->BeginMethod(factory, PUBLIC|STATIC);
-
   factory_writer->WriteLine(string("OperationBuilder opBuilder = ")
       + "scope.graph().opBuilder(\"" + op_name_
       + "\", scope.makeOpName(\"" + op_name_ + "\"));");
-
+  std::vector<JavaVar>::const_iterator var;
   for (var = inputs_.begin(); var != inputs_.end(); ++var) {
     if (Java::IsCollection(var->type())) {
       factory_writer->WriteLine(
@@ -203,7 +225,7 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
 }
 
 void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
-    const JavaType& output_tensor_type) {
+    const JavaType& single_output_type) {
   std::vector<JavaVar>::const_iterator var;
 
   // Options setters
@@ -228,7 +250,7 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
   // Interface methods
   if (mode == SINGLE_OUTPUT) {
     JavaType return_type = Java::Class("Output", "org.tensorflow");
-    return_type.param(output_tensor_type);
+    return_type.param(single_output_type);
     JavaMethod as_output = Java::Method("asOutput", return_type);
     as_output.annotation(Java::Annot("Override"));
     JavaMethodWriter* method_writer =
@@ -236,14 +258,14 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
 
     // cast the output if not of the same tensor type
     JavaVar output = outputs_.front();
-    if (output_tensor_type != output.type().params().front()) {
+    if (single_output_type != output.type().params().front()) {
       method_writer->Write("(")->Write(return_type)->Write(") ");
     }
     method_writer->WriteLine(output.name() + ";")->EndOfMethod();
 
   } else if (mode == SINGLE_LIST_OUTPUT) {
     JavaType operand = Java::Interface("Operand", "org.tensorflow");
-    operand.param(output_tensor_type);
+    operand.param(single_output_type);
     JavaType return_type = Java::Interface("Iterator", "java.util");
     return_type.param(operand);
     JavaMethod iterator = Java::Method("iterator", return_type)
@@ -287,15 +309,6 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
     }
   }
   ctor_writer->EndOfMethod();
-}
-
-void OpTemplate::CollectImports(const JavaType& type) {
-  auto import_scanner = [this](const JavaType* type) {
-    if (!type->package().empty()) {
-      this->imports_.insert(*type);
-    }
-  };
-  type.Scan(&import_scanner);
 }
 
 }  // namespace java

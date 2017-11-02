@@ -55,7 +55,7 @@ class OpTemplate {
   /// \brief Define an input to the operation
   void AddInput(const JavaVar& input) {
     AddVariable(input, &inputs_);
-    if (IsList(input)) {
+    if (Java::IsCollection(input.type())) {
       imports_.insert(Java::Class("Operands", "org.tensorflow.op"));
     }
   }
@@ -63,7 +63,7 @@ class OpTemplate {
   /// \brief Define an output of the operation
   void AddOutput(const JavaVar& output) {
     AddVariable(output, &outputs_);
-    if (IsList(output)) {
+    if (Java::IsCollection(output.type())) {
       imports_.insert(Java::Class("Arrays", "java.util"));
     }
   }
@@ -101,9 +101,6 @@ class OpTemplate {
   void AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {
     CollectImports(var.type());
     list->push_back(var);
-  }
-  static bool IsList(const JavaVar& var) {
-    return var.type().name() == "List" || var.type().name() == "Iterable";
   }
 };
 

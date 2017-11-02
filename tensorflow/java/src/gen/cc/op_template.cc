@@ -46,9 +46,12 @@ void OpTemplate::RenderTo(string* buffer) {
 void OpTemplate::Render(SourceWriter* src_writer) {
   RenderMode mode = DEFAULT;
   if (outputs_.size() == 1) {
-    mode = IsList(outputs_.front()) ? SINGLE_LIST_OUTPUT : SINGLE_OUTPUT;
+    mode = Java::IsCollection(outputs_.front().type())
+        ? SINGLE_LIST_OUTPUT : SINGLE_OUTPUT;
   }
-  JavaType op_class(op_class_);  // the effective op class
+
+  // Complete the effective op class to render by setting supertypes
+  JavaType op_class(op_class_);
   op_class.supertype(Java::Class("PrimitiveOp", "org.tensorflow.op"));
   JavaType tensor_type;
   switch (mode) {
@@ -80,6 +83,8 @@ void OpTemplate::Render(SourceWriter* src_writer) {
     }
   }
   CollectImports(op_class);
+
+  // Render the op class to the selected target
   JavaWriter writer(src_writer);
   writer.WriteSnippet(
       io::JoinPath(kGenResourcePath, "licence.snippet.java"));
@@ -171,7 +176,7 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
       + "\", scope.makeOpName(\"" + op_name_ + "\"));");
 
   for (var = inputs_.begin(); var != inputs_.end(); ++var) {
-    if (IsList(*var)) {
+    if (Java::IsCollection(var->type())) {
       factory_writer->WriteLine(
           "opBuilder.addInputList(Operands.asOutputs(" + var->name() + "));");
     } else {
@@ -265,7 +270,7 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
 
   std::vector<JavaVar>::const_iterator var;
   for (var = outputs_.begin(); var != outputs_.end(); ++var) {
-    if (IsList(*var)) {
+    if (Java::IsCollection(var->type())) {
       string var_length_name = var->name() + "Length";
       ctor_writer->WriteLine("int " + var_length_name
           + " = operation.outputListLength(\"" + var->name() + "\");");

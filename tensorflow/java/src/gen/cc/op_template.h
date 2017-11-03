@@ -80,7 +80,7 @@ class OpTemplate {
   std::vector<JavaVar> attrs_;
   std::vector<JavaVar> opt_attrs_;
   std::vector<JavaVar> outputs_;
-  std::map<JavaType, JavaVar> declared_output_types_;
+  std::map<JavaType, JavaVar> declared_types_;
 
   void AddVariable(const JavaVar& var, std::vector<JavaVar>* list);
   void CollectImports(const JavaType& type);

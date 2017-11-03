@@ -63,15 +63,17 @@ void OpTemplate::AddOutput(const JavaVar& output, bool declare_type) {
   }
   if (declare_type) {
     JavaType tensor_type = FindTensorType(output.type());
-    std::map<JavaType, JavaVar>::iterator it = declared_output_types_.find(tensor_type);
-    if (it == declared_output_types_.end()) {
+
+    std::map<JavaType, JavaVar>::iterator it = declared_types_.find(tensor_type);
+    if (it == declared_types_.end()) {
       string var_name("outputType" + tensor_type.name());
       JavaVar var = Java::Var(var_name, Java::ClassOf(tensor_type));
-      var.doc_ptr()->brief("type for \"" + output.name() + "\"");
-      declared_output_types_.insert(std::pair<JavaType, JavaVar>(tensor_type, var));
+      var.doc_ptr()->brief("expected tensor type in \"" + output.name() + "\"");
+      declared_types_.insert(std::pair<JavaType, JavaVar>(tensor_type, var));
+
     } else {
-      const string current_doc = it->second.doc().brief();
-      it->second.doc_ptr()->brief(current_doc + " and \"" + output.name() + "\"");
+      const string brief = it->second.doc().brief();
+      it->second.doc_ptr()->brief(brief + " and \"" + output.name() + "\"");
     }
   }
 }
@@ -117,6 +119,7 @@ void OpTemplate::Render(SourceWriter* src_writer) {
         mode = SINGLE_LIST_OUTPUT;
         op_class.supertype(Java::IterableOf(operand));
         imports_.insert(Java::Interface("Iterator", "java.util"));
+
       } else {
         mode = SINGLE_OUTPUT;
         op_class.supertype(operand);
@@ -181,7 +184,7 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   factory.doc_ptr()->value("a new instance of " + op_class_.name());
   factory.arg(scope);
   std::map<JavaType, JavaVar>::const_iterator it;
-  for (it = declared_output_types_.cbegin(); it != declared_output_types_.cend(); ++it) {
+  for (it = declared_types_.cbegin(); it != declared_types_.cend(); ++it) {
     factory.arg(it->second);
   }
   factory.args(inputs_);
@@ -192,10 +195,11 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
     factory.arg(options);
   }
   JavaMethodWriter* factory_writer =
-      op_writer->BeginMethod(factory, PUBLIC|STATIC);
-  factory_writer->WriteLine(string("OperationBuilder opBuilder = ")
-      + "scope.graph().opBuilder(\"" + op_name_
-      + "\", scope.makeOpName(\"" + op_name_ + "\"));");
+      op_writer->BeginMethod(factory, PUBLIC|STATIC)
+               ->WriteLine(string("OperationBuilder opBuilder = ")
+                   + "scope.graph().opBuilder(\"" + op_name_
+                   + "\", scope.makeOpName(\"" + op_name_ + "\"));");
+
   std::vector<JavaVar>::const_iterator var;
   for (var = inputs_.begin(); var != inputs_.end(); ++var) {
     if (Java::IsCollection(var->type())) {

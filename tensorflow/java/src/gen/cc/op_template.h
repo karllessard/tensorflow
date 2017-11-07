@@ -40,10 +40,12 @@ class OpTemplate {
   virtual ~OpTemplate() {}
 
   /// \brief Render this template to a file
-  void RenderTo(WritableFile* file);
+  ///
+  /// The file will be named and located by the op class definition.
+  void RenderToFile(const string& root_dir, Env* env = Env::Default());
 
   /// \brief Render this templte to a memory buffer
-  void RenderTo(string* buffer);
+  void RenderToBuffer(string* buffer);
 
   /// \brief Define the operation class to render
   ///

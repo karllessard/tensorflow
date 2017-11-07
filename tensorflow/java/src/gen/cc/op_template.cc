@@ -16,10 +16,11 @@ limitations under the License.
 #include <string>
 #include <vector>
 
-#include "tensorflow/java/src/gen/cc/op_template.h"
+#include "tensorflow/core/lib/strings/str_util.h"
 #include "tensorflow/core/lib/io/path.h"
 #include "tensorflow/java/src/gen/cc/java_defs.h"
 #include "tensorflow/java/src/gen/cc/java_writer.h"
+#include "tensorflow/java/src/gen/cc/op_template.h"
 
 namespace tensorflow {
 namespace java {
@@ -92,12 +93,23 @@ void OpTemplate::CollectImports(const JavaType& type) {
   type.Scan(&import_scanner);
 }
 
-void OpTemplate::RenderTo(WritableFile* file) {
-  SourceFileWriter src_writer(file);
+void OpTemplate::RenderToFile(const string& root_dir, Env* env) {
+  string package_path;
+  if (!op_class_.package().empty()) {
+    package_path = io::JoinPath(root_dir,
+        str_util::StringReplace(op_class_.package(), ".", "/", true));
+    if (!env->FileExists(package_path).ok()) {
+      TF_CHECK_OK(env->RecursivelyCreateDir(package_path));
+    }
+  }
+  string file_path = io::JoinPath(package_path, op_class_.name() + ".java");
+  std::unique_ptr<tensorflow::WritableFile> file;
+  TF_CHECK_OK(tensorflow::Env::Default()->NewWritableFile(file_path, &file));
+  SourceFileWriter src_writer(file.get());
   Render(&src_writer);
 }
 
-void OpTemplate::RenderTo(string* buffer) {
+void OpTemplate::RenderToBuffer(string* buffer) {
   SourceBufferWriter src_writer(buffer);
   Render(&src_writer);
 }
@@ -123,6 +135,7 @@ void OpTemplate::Render(SourceWriter* src_writer) {
       } else {
         mode = SINGLE_OUTPUT;
         op_class.supertype(operand);
+        imports_.insert(Java::Class("Output", "org.tensorflow"));
       }
   }
   CollectImports(op_class);
@@ -253,16 +266,20 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
 
   // Interface methods
   if (mode == SINGLE_OUTPUT) {
-    JavaType return_type = Java::Class("Output", "org.tensorflow");
-    return_type.param(single_output_type);
-    JavaMethod as_output = Java::Method("asOutput", return_type);
-    as_output.annotation(Java::Annot("Override"));
-    JavaMethodWriter* method_writer =
-        op_writer->BeginMethod(as_output, PUBLIC)->Write("return ");
-
+    JavaType return_type = Java::Class("Output", "org.tensorflow")
+        .param(single_output_type);
+    JavaMethod as_output = Java::Method("asOutput", return_type)
+        .annotation(Java::Annot("Override"));
     // cast the output if not of the same tensor type
     JavaVar output = outputs_.front();
-    if (single_output_type != output.type().params().front()) {
+    bool cast = single_output_type != output.type().params().front();
+    if (cast) {
+      as_output.annotation(
+          Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
+    }
+    JavaMethodWriter* method_writer =
+        op_writer->BeginMethod(as_output, PUBLIC)->Write("return ");
+    if (cast) {
       method_writer->Write("(")->Write(return_type)->Write(") ");
     }
     method_writer->WriteLine(output.name() + ";")->EndOfMethod();
@@ -288,7 +305,10 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
 void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
   JavaVar operation = Java::Var("operation",
       Java::Class("Operation", "org.tensorflow"));
-  JavaMethod ctor = Java::ConstructorFor(op_class_).arg(operation);
+
+  JavaMethod ctor = Java::ConstructorFor(op_class_)
+      .arg(operation)
+      .annotation(Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
 
   JavaMethodWriter* ctor_writer = op_writer->BeginMethod(ctor, PRIVATE);
   ctor_writer->WriteLine("super(operation);")

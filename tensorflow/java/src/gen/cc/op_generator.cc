@@ -14,10 +14,15 @@ limitations under the License.
 ==============================================================================*/
 
 #include <string>
+#include <map>
 
+#include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/strings/str_util.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/java/src/gen/cc/op_generator.h"
+#include "tensorflow/java/src/gen/cc/java_defs.h"
+#include "tensorflow/java/src/gen/cc/op_template.h"
+#include "tensorflow/java/src/gen/cc/op_type_resolver.h"
 
 namespace tensorflow {
 namespace java {
@@ -47,22 +52,54 @@ OpGenerator::OpGenerator() : env(Env::Default()) {}
 OpGenerator::~OpGenerator() {}
 
 Status OpGenerator::Run(const OpList& ops, const string& lib_name,
-                        const string& base_package, const string& output_dir) {
-  const string package =
-      base_package + '.' + str_util::StringReplace(lib_name, "_", "", true);
-  const string package_path =
-      output_dir + '/' + str_util::StringReplace(package, ".", "/", true);
-  const string group = CamelCase(lib_name, '_', false);
-
-  if (!env->FileExists(package_path).ok()) {
-    TF_CHECK_OK(env->RecursivelyCreateDir(package_path));
-  }
+    const string& base_package, const string& output_dir) {
+  const string op_group = CamelCase(lib_name, '_', false);
 
   LOG(INFO) << "Generating Java wrappers for '" << lib_name << "' operations";
-  // TODO(karllessard) generate wrappers from list of ops
+
+  for (const auto& op : ops.op()) {
+    if (GenerateOp(op, op_group, base_package, output_dir) != Status::OK()) {
+      LOG(ERROR) << "Fail to generate Java wrapper for operation \""
+          << op.name() << "\"";
+    }
+  }
+  return Status::OK();
+}
+
+Status OpGenerator::GenerateOp(OpDef op, const string& op_group,
+    const string& base_package, const string& output_dir) {
+  OpTypeResolver type_resolver;
+  OpTemplate tmpl(op.name());
+
+  const string package = base_package + '.' + str_util::Lowercase(op_group);
+  JavaType op_class = Java::Class(op.name(), package);
+
+  for (const auto& input : op.input_arg()) {
+    const string input_name = CamelCase(input.name(), '_', false);
+    const ResolvedType type = type_resolver.InputType(op, input);
+    tmpl.AddInput(Java::Var(input_name, type.var));
+  }
+
+  std::set<string> class_generics;
+
+  for (const auto& output : op.output_arg()) {
+    const string output_name = CamelCase(output.name(), '_', false);
+    const ResolvedType type = type_resolver.OutputType(op, output);
+    if (type.tensor.kind() == JavaType::GENERIC &&
+        !Java::IsWildcard(type.tensor) &&
+        class_generics.find(type.tensor.name()) == class_generics.end()) {
+      op_class.param(type.tensor);
+      class_generics.insert(type.tensor.name());
+    }
+    tmpl.AddOutput(Java::Var(output_name, type.var), type.is_new_generic);
+  }
+
+  tmpl.OpClass(op_class);
+  tmpl.RenderToFile(output_dir, env);
 
   return Status::OK();
 }
+
 
 }  // namespace java
 }  // namespace tensorflow

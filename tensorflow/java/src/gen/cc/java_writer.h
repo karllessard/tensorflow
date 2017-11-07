@@ -50,6 +50,9 @@ class JavaBaseWriter {
   /// \brief Writes the signature of a type
   JavaBaseWriter* Write(const JavaType& type);
 
+  /// \brief Writes the signature of an annotation
+  JavaBaseWriter* Write(const JavaAnnot& annot);
+
   /// \brief Writes a line of code or text, empty string results in end-of-line
   JavaBaseWriter* WriteLine(const string& str) {
     src_writer_->Write(str)->EndOfLine();

@@ -260,19 +260,15 @@ int main(int argc, char** argv) {
     if (!env->FileExists(out_dir).ok()) {
       env->RecursivelyCreateDir(out_dir);
     }
-    tester = [out_dir](tensorflow::java::OpTemplate* tmpl,
-          const std::string& name) {
-        std::unique_ptr<tensorflow::WritableFile> file;
-        std::string fname = tensorflow::io::JoinPath(out_dir, name + ".java");
-        TF_CHECK_OK(tensorflow::Env::Default()->NewWritableFile(fname, &file));
-        tmpl->RenderTo(file.get());
+    tester = [out_dir](tensorflow::java::OpTemplate* tmpl) {
+        tmpl->RenderToFile(out_dir);
     };
 
   } else {
     // Test mode: Simply render source code in memory and test
     tester = [](tensorflow::java::OpTemplate* tmpl, const std::string& name) {
         std::string buffer;
-        tmpl->RenderTo(&buffer);
+        tmpl->RenderToBuffer(&buffer);
         // TODO add test checks
     };
   }

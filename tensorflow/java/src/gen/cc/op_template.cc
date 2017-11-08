@@ -61,6 +61,7 @@ void OpTemplate::AddOutput(const JavaVar& output, bool declare_type) {
   AddVariable(output, &outputs_);
   if (Java::IsCollection(output.type())) {
     imports_.insert(Java::Class("Arrays", "java.util"));
+    has_list_output = true;
   }
   if (declare_type) {
     JavaType tensor_type = FindTensorType(output.type());
@@ -306,10 +307,10 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
   JavaVar operation = Java::Var("operation",
       Java::Class("Operation", "org.tensorflow"));
 
-  JavaMethod ctor = Java::ConstructorFor(op_class_)
-      .arg(operation)
-      .annotation(Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
-
+  JavaMethod ctor = Java::ConstructorFor(op_class_).arg(operation);
+  if (has_list_output) {
+      ctor.annotation(Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
+  }
   JavaMethodWriter* ctor_writer = op_writer->BeginMethod(ctor, PRIVATE);
   ctor_writer->WriteLine("super(operation);")
       ->WriteLine("int outputIdx = 0;");

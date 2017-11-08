@@ -265,6 +265,10 @@ class Java {
   static bool IsWildcard(const JavaType& type) {
     return type.kind() == JavaType::GENERIC && type.name().empty();
   }
+  /// Returns true if "type" is a named generic parameter (<T>)
+  static bool IsGeneric(const JavaType& type) {
+    return type.kind() == JavaType::GENERIC && !type.name().empty();
+  }
   /// Returns true if "type" is of a known collection type (only a few for now)
   static bool IsCollection(const JavaType& type) {
     return type.name() == "List" || type.name() == "Iterable";

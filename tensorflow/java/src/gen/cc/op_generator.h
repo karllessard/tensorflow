@@ -46,7 +46,7 @@ class OpGenerator {
  private:
   Env* env;
 
-  Status GenerateOp(OpDef op, const string& op_group,
+  Status GenerateOp(const OpDef& op, const string& op_group,
       const string& base_package, const string& output_dir);
 };
 

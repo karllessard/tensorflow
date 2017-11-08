@@ -28,12 +28,12 @@ namespace tensorflow {
 namespace java {
 namespace {
 
-string CamelCase(const string& str, char delimiter, bool upper) {
+string SnakeToCamelCase(const string& str, bool upper = false) {
   string result;
   bool cap = upper;
   for (string::const_iterator it = str.begin(); it != str.end(); ++it) {
     const char c = *it;
-    if (c == delimiter) {
+    if (c == '_') {
       cap = true;
     } else if (cap) {
       result += toupper(c);
@@ -45,6 +45,15 @@ string CamelCase(const string& str, char delimiter, bool upper) {
   return result;
 }
 
+inline bool IsParamOf(const JavaType& type, const JavaType& clazz) {
+  return std::find(clazz.params().begin(), clazz.params().end(), type)
+      != clazz.params().end();
+}
+
+inline bool IsInternal(const OpDef& op) {
+  return op.name()[0] == '_';
+}
+
 }  // namespace
 
 OpGenerator::OpGenerator() : env(Env::Default()) {}
@@ -53,12 +62,11 @@ OpGenerator::~OpGenerator() {}
 
 Status OpGenerator::Run(const OpList& ops, const string& lib_name,
     const string& base_package, const string& output_dir) {
-  const string op_group = CamelCase(lib_name, '_', false);
-
+  const string op_group = SnakeToCamelCase(lib_name);
   LOG(INFO) << "Generating Java wrappers for '" << lib_name << "' operations";
-
   for (const auto& op : ops.op()) {
-    if (GenerateOp(op, op_group, base_package, output_dir) != Status::OK()) {
+    if (!IsInternal(op)
+        && GenerateOp(op, op_group, base_package, output_dir) != Status::OK()) {
       LOG(ERROR) << "Fail to generate Java wrapper for operation \""
           << op.name() << "\"";
     }
@@ -66,34 +74,26 @@ Status OpGenerator::Run(const OpList& ops, const string& lib_name,
   return Status::OK();
 }
 
-Status OpGenerator::GenerateOp(OpDef op, const string& op_group,
+Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
     const string& base_package, const string& output_dir) {
   OpTypeResolver type_resolver;
   OpTemplate tmpl(op.name());
-
   const string package = base_package + '.' + str_util::Lowercase(op_group);
   JavaType op_class = Java::Class(op.name(), package);
 
   for (const auto& input : op.input_arg()) {
-    const string input_name = CamelCase(input.name(), '_', false);
+    const string input_name = SnakeToCamelCase(input.name());
     const ResolvedType type = type_resolver.InputType(op, input);
     tmpl.AddInput(Java::Var(input_name, type.var));
   }
-
-  std::set<string> class_generics;
-
   for (const auto& output : op.output_arg()) {
-    const string output_name = CamelCase(output.name(), '_', false);
+    const string output_name = SnakeToCamelCase(output.name());
     const ResolvedType type = type_resolver.OutputType(op, output);
-    if (type.tensor.kind() == JavaType::GENERIC &&
-        !Java::IsWildcard(type.tensor) &&
-        class_generics.find(type.tensor.name()) == class_generics.end()) {
+    if (Java::IsGeneric(type.tensor) && !IsParamOf(type.tensor, op_class)) {
       op_class.param(type.tensor);
-      class_generics.insert(type.tensor.name());
     }
     tmpl.AddOutput(Java::Var(output_name, type.var), type.is_new_generic);
   }
-
   tmpl.OpClass(op_class);
   tmpl.RenderToFile(output_dir, env);
 

@@ -20,16 +20,41 @@ namespace tensorflow {
 namespace java {
 
 JavaType OpTypeResolver::AttrType(const OpDef& op, const string& attr_name) {
-  // TODO!
-  string name;
-  name.push_back(next_generic_name++);
-  return Java::Generic(name);
+  JavaType tensor_type = Java::Wildcard();
+  for (const auto& attr : op.attr()) {
+    if (attr.name() == attr_name) {
+      string attr_type = attr.type();
+      if (attr.type().compare(0, 5, "list(") == 0) {
+        attr_type = attr_type.substr(5, attr.type().find_last_of(')') - 5);
+      }
+      if (attr_type == "string") {
+        tensor_type = Java::Class("String");
+      } else if (attr_type == "int") {
+        tensor_type = Java::Class("Integer");
+      } else if (attr_type == "float") {
+        tensor_type = Java::Class("Float");
+      } else if (attr_type == "bool") {
+        tensor_type = Java::Class("Boolean");
+      } else if (attr_type == "type") {
+        tensor_type = Java::Generic(string(1, next_generic_name++));
+        if (next_generic_name == 'Z') {
+          next_generic_name = 'A';
+        } else {
+          ++next_generic_name;
+        }
+      } else {
+        LOG(WARNING) << "Unsupported attribute type \"" << attr_type << "\"";
+      }
+      break;
+    }
+  }
+  return tensor_type;
 }
 
 ResolvedType OpTypeResolver::TypeOf(const OpDef& op, const OpDef_ArgDef& arg,
     JavaType base_type) {
   ResolvedType result;
-  bool is_list = false;
+  bool is_list = !arg.number_attr().empty();
   if (arg.type() != DataType::DT_INVALID) {
     switch (arg.type()) {
       case DataType::DT_BOOL:
@@ -54,6 +79,8 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef& op, const OpDef_ArgDef& arg,
         result.tensor = Java::Class("Long");
         break;
       default:
+        LOG(WARNING) << "Unsupported data type " << arg.type()
+            << " for arg \"" + arg.name() + "\"";
         break;
     }
   } else {
@@ -70,10 +97,12 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef& op, const OpDef_ArgDef& arg,
       } else {
         result.tensor = AttrType(op, attr_name);
         known_type_attrs.insert(std::pair<string, JavaType>(attr_name, result.tensor));
-        if (result.tensor.kind() == JavaType::GENERIC) {
+        if (Java::IsGeneric(result.tensor)) {
           result.is_new_generic = true;
         }
       }
+    } else {
+        LOG(ERROR) << "Can't resolve type attribute for arg \"" + arg.name() + "\"";
     }
   }
   if (result.tensor.empty()) {

@@ -58,11 +58,10 @@ void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
     std::map<string, JavaType>::const_iterator it =
       kPrimitiveAttrTypes.find(type.name());
     if (it != kPrimitiveAttrTypes.end()) {
-      JavaType primitive = it->second;
       string array_name = attr.name() + "Array";
-      writer->Write(primitive)
-          ->Write(" " + array_name + "[] = new ")
-          ->Write(primitive)
+      writer->Write(it->second)
+          ->Write("[] " + array_name + " = new ")
+          ->Write(it->second)
           ->WriteLine("[" + var_name + ".size()];");
       writer->BeginBlock("for (int i = 0; i < " + array_name + ".length; ++i)")
           ->WriteLine(array_name + "[i] = " + var_name + ".get(i);")
@@ -110,9 +109,9 @@ void OpTemplate::AddOutput(const JavaVar& output, bool declare_type) {
 
     std::map<JavaType, JavaVar>::iterator it = declared_types_.find(tensor_type);
     if (it == declared_types_.end()) {
-      string var_name("outputType" + tensor_type.name());
+      string var_name(output.name() + "Type");
       JavaVar var = Java::Var(var_name, Java::ClassOf(tensor_type));
-      var.doc_ptr()->brief("expected tensor type in \"" + output.name() + "\"");
+      var.doc_ptr()->brief("tensor type of output \"" + output.name() + "\"");
       declared_types_.insert(std::pair<JavaType, JavaVar>(tensor_type, var));
 
     } else {

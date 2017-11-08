@@ -203,7 +203,7 @@ JavaMethodWriter* JavaClassWriter::BeginMethod(const JavaMethod& method,
 JavaMethodWriter* JavaMethodWriter::Begin(const JavaMethod& method,
     int modifiers) {
   GenericTypeScanner generics(&declared_generics_);
-  method.ScanTypes(&generics, false);
+  method.ScanTypes(&generics);
   WriteModifiers(modifiers, src_writer_);
   if (!generics.discoveredTypes().empty()) {
     WriteGenerics(generics.discoveredTypes(), src_writer_);

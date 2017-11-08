@@ -194,7 +194,7 @@ class JavaMethod {
 
   /// Scans all types found in the signature of this method.
   template <class TypeScanner>
-  void ScanTypes(TypeScanner* scanner, bool scan_return_type) const;
+  void ScanTypes(TypeScanner* scanner) const;
 
  private:
   string name_;
@@ -320,14 +320,12 @@ void JavaType::Scan(TypeScanner* scanner) const {
 }
 
 template <class TypeScanner>
-void JavaMethod::ScanTypes(TypeScanner* scanner, bool args_only) const {
-  if (!args_only && !type_.empty()) {
-    type_.Scan(scanner);
-  }
+void JavaMethod::ScanTypes(TypeScanner* scanner) const {
   for (std::vector<JavaVar>::const_iterator arg = args_.cbegin();
       arg != args_.cend(); ++arg) {
     arg->type().Scan(scanner);
   }
+  type_.Scan(scanner);
 }
 
 }  // namespace java

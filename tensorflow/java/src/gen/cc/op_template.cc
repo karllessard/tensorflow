@@ -39,6 +39,48 @@ JavaType FindTensorType(const JavaType& operand_type) {
   return tensor_type;
 }
 
+const std::map<string, JavaType> kPrimitiveAttrTypes = {
+    { "Boolean", Java::Type("boolean") },
+    { "Byte", Java::Type("byte") },
+    { "Character", Java::Type("byte") },
+    { "Float", Java::Type("float") },
+    { "Integer", Java::Type("long") },
+    { "Long", Java::Type("long") },
+    { "Short", Java::Type("long") },
+    { "Double", Java::Type("float") },
+};
+
+void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
+    bool optional) {
+  string var_name = optional ? "options." + attr.name() : attr.name();
+  if (Java::IsCollection(attr.type())) {
+    const JavaType& type = attr.type().params().front();
+    std::map<string, JavaType>::const_iterator it =
+      kPrimitiveAttrTypes.find(type.name());
+    if (it != kPrimitiveAttrTypes.end()) {
+      JavaType primitive = it->second;
+      string array_name = attr.name() + "Array";
+      writer->Write(primitive)
+          ->Write(" " + array_name + "[] = new ")
+          ->Write(primitive)
+          ->WriteLine("[" + var_name + ".size()];");
+      writer->BeginBlock("for (int i = 0; i < " + array_name + ".length; ++i)")
+          ->WriteLine(array_name + "[i] = " + var_name + ".get(i);")
+          ->EndOfBlock();
+      writer->WriteLine("opBuilder.setAttr(\"" + attr.name() + "\", "
+          + array_name + ");");
+    } else {
+      writer->Write("opBuilder.setAttr(\"" + attr.name() + "\", ")
+          ->Write(var_name + ".toArray(new ")
+          ->Write(type)
+          ->WriteLine("[" + var_name + ".size()]));");
+    }
+  } else {
+    writer->WriteLine("opBuilder.setAttr(\"" + attr.name() + "\", "
+        + var_name + ");");
+  }
+}
+
 }  // namespace
 
 OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
@@ -197,16 +239,16 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
           + op_name_ + " operation to the graph.");
   factory.doc_ptr()->value("a new instance of " + op_class_.name());
   factory.arg(scope);
-  std::map<JavaType, JavaVar>::const_iterator it;
-  for (it = declared_types_.cbegin(); it != declared_types_.cend(); ++it) {
-    factory.arg(it->second);
-  }
   factory.args(inputs_);
   factory.args(attrs_);
   if (with_options) {
     JavaVar options = Java::Var("options", Java::Class("Options"));
     options.doc_ptr()->brief("an object holding optional attributes values");
     factory.arg(options);
+  }
+  std::map<JavaType, JavaVar>::const_iterator it;
+  for (it = declared_types_.cbegin(); it != declared_types_.cend(); ++it) {
+    factory.arg(it->second);
   }
   JavaMethodWriter* factory_writer =
       op_writer->BeginMethod(factory, PUBLIC|STATIC)
@@ -225,15 +267,13 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
     }
   }
   for (var = attrs_.begin(); var != attrs_.end(); ++var) {
-    factory_writer->WriteLine(
-        "opBuilder.setAttr(\"" + var->name() + "\", " + var->name() + ");");
+    WriteSetAttrDirective(*var, factory_writer, false);
   }
   if (with_options) {
     for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
-      factory_writer->BeginBlock("if (options." + var->name() + " != null)")
-          ->WriteLine("opBuilder.setAttr(\"" + var->name()
-              + "\", options." + var->name() + ");")
-          ->EndOfBlock();
+      factory_writer->BeginBlock("if (options." + var->name() + " != null)");
+      WriteSetAttrDirective(*var, factory_writer, true);
+      factory_writer->EndOfBlock();
     }
   }
   factory_writer->Write("return new ")
@@ -255,7 +295,6 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
             + var->name() + ");")
         ->EndOfMethod();
   }
-
   // Output getters
   for (var = outputs_.begin(); var != outputs_.end(); ++var) {
     JavaMethod getter = Java::Method(var->name(), var->type());
@@ -264,7 +303,6 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
         ->WriteLine("return " + var->name() + ";")
         ->EndOfMethod();
   }
-
   // Interface methods
   if (mode == SINGLE_OUTPUT) {
     JavaType return_type = Java::Class("Output", "org.tensorflow")

@@ -70,7 +70,7 @@ class JavaAnnot;
 class JavaType {
  public:
   enum Kind {
-    PRIMITIVE, CLASS, INTERFACE, GENERIC, ANNOTATION, NONE
+    PRIMITIVE, ENUM, CLASS, INTERFACE, GENERIC, ANNOTATION, NONE
   };
   JavaType() = default;
   const Kind& kind() const { return kind_; }
@@ -216,6 +216,10 @@ class Java {
   /// Returns the definition of a Java primitive type
   static JavaType Type(const string& name) {
     return JavaType(JavaType::PRIMITIVE, name);
+  }
+  /// Returns the definition of a Java enumeration
+  static JavaType Enum(const string& name, const string& package = "") {
+    return JavaType(JavaType::ENUM, name, package);
   }
   /// Returns the definition of a Java class
   static JavaType Class(const string& name, const string& package = "") {

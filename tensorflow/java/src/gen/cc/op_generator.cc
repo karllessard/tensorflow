@@ -65,7 +65,7 @@ Status OpGenerator::Run(const OpList& ops, const string& lib_name,
   const string op_group = SnakeToCamelCase(lib_name);
   LOG(INFO) << "Generating Java wrappers for '" << lib_name << "' operations";
   for (const auto& op : ops.op()) {
-    if (!IsInternal(op)
+    if (!IsInternal(op)  // skip internal ops
         && GenerateOp(op, op_group, base_package, output_dir) != Status::OK()) {
       LOG(ERROR) << "Fail to generate Java wrapper for operation \""
           << op.name() << "\"";
@@ -83,16 +83,23 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
 
   for (const auto& input : op.input_arg()) {
     const string input_name = SnakeToCamelCase(input.name());
-    const ResolvedType type = type_resolver.InputType(op, input);
+    const ResolvedType type = type_resolver.InputType(input, op);
     tmpl.AddInput(Java::Var(input_name, type.var));
   }
   for (const auto& output : op.output_arg()) {
     const string output_name = SnakeToCamelCase(output.name());
-    const ResolvedType type = type_resolver.OutputType(op, output);
+    const ResolvedType type = type_resolver.OutputType(output, op);
     if (Java::IsGeneric(type.tensor) && !IsParamOf(type.tensor, op_class)) {
       op_class.param(type.tensor);
     }
     tmpl.AddOutput(Java::Var(output_name, type.var), type.is_new_generic);
+  }
+  for (const auto& attr : op.attr()) {
+    if (!type_resolver.IsInferred(attr)) {  // skip type attributes
+      const string attr_name = SnakeToCamelCase(attr.name());
+      const JavaType type = type_resolver.AttrType(attr);
+      tmpl.AddAttribute(Java::Var(attr_name, type), attr.has_default_value());
+    }
   }
   tmpl.OpClass(op_class);
   tmpl.RenderToFile(output_dir, env);

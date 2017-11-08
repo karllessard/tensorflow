@@ -33,19 +33,23 @@ class OpTypeResolver {
   OpTypeResolver() {}
   virtual ~OpTypeResolver() {}
 
-  ResolvedType InputType(const OpDef& op, const OpDef_ArgDef& input) {
-    return TypeOf(op, input, Java::Interface("Operand", "org.tensorflow"));
+  ResolvedType InputType(const OpDef_ArgDef& input, const OpDef& op) {
+    return TypeOf(input, Java::Interface("Operand", "org.tensorflow"), op);
   }
-  ResolvedType OutputType(const OpDef& op, const OpDef_ArgDef& output) {
-    return TypeOf(op, output, Java::Class("Output", "org.tensorflow"));
+  ResolvedType OutputType(const OpDef_ArgDef& output, const OpDef& op) {
+    return TypeOf(output, Java::Class("Output", "org.tensorflow"), op);
   }
-  JavaType AttrType(const OpDef& op, const string& attr);
+  JavaType AttrType(const OpDef_AttrDef& attr, bool inferred = false);
+  bool IsInferred(const OpDef_AttrDef& attr) {
+    return inferred_attrs_.find(attr.name()) != inferred_attrs_.end();
+  }
 
  private:
-  std::map<string, JavaType> known_type_attrs;
-  char next_generic_name = 'T';
+  std::map<string, JavaType> inferred_attrs_;
+  char next_generic_ = 'T';
 
-  ResolvedType TypeOf(const OpDef& op, const OpDef_ArgDef& arg, JavaType base_type);
+  ResolvedType TypeOf(const OpDef_ArgDef& arg, JavaType base_type,
+      const OpDef& op);
 };
 
 }  // namespace java

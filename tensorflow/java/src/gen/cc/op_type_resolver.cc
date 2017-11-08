@@ -19,40 +19,57 @@ limitations under the License.
 namespace tensorflow {
 namespace java {
 
-JavaType OpTypeResolver::AttrType(const OpDef& op, const string& attr_name) {
-  JavaType tensor_type = Java::Wildcard();
-  for (const auto& attr : op.attr()) {
-    if (attr.name() == attr_name) {
-      string attr_type = attr.type();
-      if (attr.type().compare(0, 5, "list(") == 0) {
-        attr_type = attr_type.substr(5, attr.type().find_last_of(')') - 5);
-      }
-      if (attr_type == "string") {
-        tensor_type = Java::Class("String");
-      } else if (attr_type == "int") {
-        tensor_type = Java::Class("Integer");
-      } else if (attr_type == "float") {
-        tensor_type = Java::Class("Float");
-      } else if (attr_type == "bool") {
-        tensor_type = Java::Class("Boolean");
-      } else if (attr_type == "type") {
-        tensor_type = Java::Generic(string(1, next_generic_name++));
-        if (next_generic_name == 'Z') {
-          next_generic_name = 'A';
-        } else {
-          ++next_generic_name;
-        }
-      } else {
-        LOG(WARNING) << "Unsupported attribute type \"" << attr_type << "\"";
-      }
-      break;
-    }
+JavaType OpTypeResolver::AttrType(const OpDef_AttrDef& attr, bool inferred) {
+  string attr_type = attr.type();
+  bool is_list = false;
+  if (attr.type().compare(0, 5, "list(") == 0) {
+    attr_type = attr_type.substr(5, attr.type().find_last_of(')') - 5);
+    is_list = !inferred;  // only return list if explicit attributes
   }
-  return tensor_type;
+  // <type> can be:
+  //   "string", "int", "float", "bool", "type", "shape", or "tensor"
+  //   "numbertype", "realnumbertype", "quantizedtype"
+  //       (meaning "type" with a restriction on valid values)
+  //   "{int32,int64}" or {realnumbertype,quantizedtype,string}"
+  //       (meaning "type" with a restriction containing unions of value types)
+  //   "{\"foo\", \"bar\n baz\"}", or "{'foo', 'bar\n baz'}"
+  //       (meaning "string" with a restriction on valid values)
+  //   "list(string)", ..., "list(tensor)", "list(numbertype)", ...
+  //       (meaning lists of the above types)
+  //   "int >= 2" (meaning "int" with a restriction on valid values)
+  //   "list(string) >= 2", "list(int) >= 2"
+  //       (meaning "list(string)" / "list(int)" with length at least 2)
+  // <default>, if included, should use the Proto text format
+  // of <type>.  For lists use [a, b, c] format.
+  JavaType type;
+  if (attr_type == "string") {
+    type = Java::Class("String");
+  } else if (attr_type == "int") {
+    type = Java::Class("Integer");
+  } else if (attr_type == "float") {
+    type = Java::Class("Float");
+  } else if (attr_type == "bool") {
+    type = Java::Class("Boolean");
+  } else if (attr_type == "shape") {
+    type = Java::Class("Shape", "org.tensorflow");
+  } else if (attr_type == "tensor") {
+    type = Java::Class("Tensor", "org.tensorflow").param(Java::Wildcard());
+  } else if (attr_type == "type") {
+    if (inferred) {
+      type = Java::Generic(string(1, next_generic_));
+      next_generic_ = (next_generic_ == 'Z') ? 'A' : next_generic_ + 1;
+    } else {
+      type = Java::Enum("DataType", "org.tensorflow");
+    }
+  } else {
+    LOG(WARNING) << "Unsupported attribute type \"" << attr_type << "\"";
+    type = inferred ? Java::Wildcard() : Java::Class("Object");
+  }
+  return is_list ? Java::ListOf(type) : type;
 }
 
-ResolvedType OpTypeResolver::TypeOf(const OpDef& op, const OpDef_ArgDef& arg,
-    JavaType base_type) {
+ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, JavaType base_type,
+    const OpDef& op) {
   ResolvedType result;
   bool is_list = !arg.number_attr().empty();
   if (arg.type() != DataType::DT_INVALID) {
@@ -88,17 +105,23 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef& op, const OpDef_ArgDef& arg,
     if (attr_name.empty()) {
       attr_name = arg.type_list_attr();
       is_list = true;
+      // FIXME since the list of tensors could be of different type, return a wildcard all the time?
     }
     if (!attr_name.empty()) {
       std::map<string, JavaType>::const_iterator it;
-      it = known_type_attrs.find(attr_name);
-      if (it != known_type_attrs.cend()) {
+      it = inferred_attrs_.find(attr_name);
+      if (it != inferred_attrs_.cend()) {
         result.tensor = it->second;
       } else {
-        result.tensor = AttrType(op, attr_name);
-        known_type_attrs.insert(std::pair<string, JavaType>(attr_name, result.tensor));
-        if (Java::IsGeneric(result.tensor)) {
-          result.is_new_generic = true;
+        for (const auto& attr : op.attr()) {
+          if (attr.name() == attr_name) {
+            result.tensor = AttrType(attr, true);
+            inferred_attrs_.insert(std::pair<string, JavaType>(attr_name, result.tensor));
+            if (Java::IsGeneric(result.tensor)) {
+              result.is_new_generic = true;
+            }
+            break;
+          }
         }
       }
     } else {

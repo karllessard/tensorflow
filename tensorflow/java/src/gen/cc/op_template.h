@@ -65,9 +65,7 @@ class OpTemplate {
   ///
   /// If the attribute has a default value when absent, it should be flagged
   /// as optional
-  void AddAttribute(const JavaVar& attr, bool optional) {
-    AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
-  }
+  void AddAttribute(const JavaVar& attr, bool optional);
 
  private:
   enum RenderMode {
@@ -83,7 +81,7 @@ class OpTemplate {
   std::vector<JavaVar> opt_attrs_;
   std::vector<JavaVar> outputs_;
   std::map<JavaType, JavaVar> declared_types_;
-  bool has_list_output = false;
+  bool has_typed_list_output = false;
 
   void AddVariable(const JavaVar& var, std::vector<JavaVar>* list);
   void CollectImports(const JavaType& type);

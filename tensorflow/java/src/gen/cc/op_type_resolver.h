@@ -23,9 +23,10 @@ namespace tensorflow {
 namespace java {
 
 struct ResolvedType {
-  JavaType var;
-  JavaType tensor;
-  bool is_new_generic = false;
+  JavaType dt;
+  bool is_generic = false;
+  bool is_list = false;
+  bool is_inferred = false;
 };
 
 class OpTypeResolver {
@@ -33,23 +34,12 @@ class OpTypeResolver {
   OpTypeResolver() {}
   virtual ~OpTypeResolver() {}
 
-  ResolvedType InputType(const OpDef_ArgDef& input, const OpDef& op) {
-    return TypeOf(input, Java::Interface("Operand", "org.tensorflow"), op);
-  }
-  ResolvedType OutputType(const OpDef_ArgDef& output, const OpDef& op) {
-    return TypeOf(output, Java::Class("Output", "org.tensorflow"), op);
-  }
-  JavaType AttrType(const OpDef_AttrDef& attr, bool inferred = false);
-  bool IsInferred(const OpDef_AttrDef& attr) {
-    return inferred_attrs_.find(attr.name()) != inferred_attrs_.end();
-  }
+  ResolvedType TypeOf(const OpDef_ArgDef& arg, const OpDef& op);
+  ResolvedType TypeOf(const OpDef_AttrDef& attr, bool allow_generic);
 
  private:
-  std::map<string, JavaType> inferred_attrs_;
+  std::map<string, ResolvedType> resolved_attrs_;
   char next_generic_ = 'T';
-
-  ResolvedType TypeOf(const OpDef_ArgDef& arg, JavaType base_type,
-      const OpDef& op);
 };
 
 }  // namespace java

@@ -26,17 +26,11 @@ namespace tensorflow {
 namespace java {
 namespace {
 
-JavaType FindTensorType(const JavaType& operand_type) {
-  JavaType tensor_type;
-  if (Java::IsCollection(operand_type)) {
-    tensor_type = operand_type.params().front().params().front();
-  } else {
-    tensor_type = operand_type.params().front();
+inline const JavaType& FindOutputTensorType(const JavaType& output_type) {
+  if (Java::IsCollection(output_type)) {
+    return output_type.params().front().params().front();
   }
-  if (Java::IsWildcard(tensor_type)) {
-    tensor_type = Java::Class("Object");
-  }
-  return tensor_type;
+  return output_type.params().front();
 }
 
 const std::map<string, JavaType> kPrimitiveAttrTypes = {
@@ -75,8 +69,13 @@ void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
           ->WriteLine("[" + var_name + ".size()]));");
     }
   } else {
-    writer->WriteLine("opBuilder.setAttr(\"" + attr.name() + "\", "
-        + var_name + ");");
+    JavaType type = attr.type();
+    writer->Write("opBuilder.setAttr(\"" + attr.name() + "\", ");
+    if (type == Java::Class("Class")) {
+      writer->WriteLine("DataType.fromClass(" + attr.name() + "));");
+    } else {
+      writer->WriteLine(var_name + ");");
+    }
   }
 }
 
@@ -100,13 +99,14 @@ void OpTemplate::AddInput(const JavaVar& input) {
 
 void OpTemplate::AddOutput(const JavaVar& output, bool declare_type) {
   AddVariable(output, &outputs_);
+  JavaType tensor_type = FindOutputTensorType(output.type());
   if (Java::IsCollection(output.type())) {
     imports_.insert(Java::Class("Arrays", "java.util"));
-    has_list_output = true;
+    if (!Java::IsWildcard(tensor_type)) {
+      has_typed_list_output = true;
+    }
   }
   if (declare_type) {
-    JavaType tensor_type = FindTensorType(output.type());
-
     std::map<JavaType, JavaVar>::iterator it = declared_types_.find(tensor_type);
     if (it == declared_types_.end()) {
       string var_name(output.name() + "Type");
@@ -118,6 +118,13 @@ void OpTemplate::AddOutput(const JavaVar& output, bool declare_type) {
       const string brief = it->second.doc().brief();
       it->second.doc_ptr()->brief(brief + " and \"" + output.name() + "\"");
     }
+  }
+}
+
+void OpTemplate::AddAttribute(const JavaVar& attr, bool optional) {
+  AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
+  if (attr.type() == Java::Class("Class")) {
+    imports_.insert(Java::Enum("DataType", "org.tensorflow"));
   }
 }
 
@@ -165,7 +172,10 @@ void OpTemplate::Render(SourceWriter* src_writer) {
   RenderMode mode = DEFAULT;
   if (outputs_.size() == 1) {
       const JavaVar& output = outputs_.front();
-      single_type = FindTensorType(output.type());
+      single_type = FindOutputTensorType(output.type());
+      if (Java::IsWildcard(single_type)) {
+        single_type = Java::Class("Object");
+      }
       JavaType operand = Java::Interface("Operand", "org.tensorflow");
       operand.param(single_type);
 
@@ -310,7 +320,7 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
         .annotation(Java::Annot("Override"));
     // cast the output if not of the same tensor type
     JavaVar output = outputs_.front();
-    bool cast = single_output_type != output.type().params().front();
+    bool cast = single_output_type != FindOutputTensorType(output.type());
     if (cast) {
       as_output.annotation(
           Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
@@ -345,7 +355,7 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
       Java::Class("Operation", "org.tensorflow"));
 
   JavaMethod ctor = Java::ConstructorFor(op_class_).arg(operation);
-  if (has_list_output) {
+  if (has_typed_list_output) {
       ctor.annotation(Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
   }
   JavaMethodWriter* ctor_writer = op_writer->BeginMethod(ctor, PRIVATE);
@@ -359,12 +369,16 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
       ctor_writer->WriteLine("int " + var_length_name
           + " = operation.outputListLength(\"" + var->name() + "\");");
 
-      // output lists must be cast explicitly
-      ctor_writer->Write(var->name() + " = Arrays.asList((")
-          ->Write(var->type().params().front())
-          ->Write("[]) operation.outputList(outputIdx, ")
-          ->WriteLine(var_length_name + "));");
-      ctor_writer->WriteLine("outputIdx += " + var_length_name + ";");
+      ctor_writer->Write(var->name() + " = Arrays.asList(");
+      const JavaType& tensor_type = FindOutputTensorType(var->type());
+      if (!Java::IsWildcard(tensor_type)) {
+        ctor_writer->Write("(")
+            ->Write(var->type().params().front())
+            ->Write("[])");
+      }
+      ctor_writer->Write("operation.outputList(outputIdx, ")
+          ->WriteLine(var_length_name + "));")
+          ->WriteLine("outputIdx += " + var_length_name + ";");
 
     } else {
       ctor_writer->WriteLine(var->name() + " = operation.output(outputIdx++);");

@@ -83,22 +83,43 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
 
   for (const auto& input : op.input_arg()) {
     const string input_name = SnakeToCamelCase(input.name());
-    const ResolvedType type = type_resolver.InputType(input, op);
-    tmpl.AddInput(Java::Var(input_name, type.var));
+    const ResolvedType type = type_resolver.TypeOf(input, op);
+    JavaType input_type = Java::Interface("Operand", "org.tensorflow")
+        .param(type.dt);
+    if (type.is_list) {
+      input_type = Java::IterableOf(input_type);
+    }
+    tmpl.AddInput(Java::Var(input_name, input_type));
+  }
+  for (const auto& attr : op.attr()) {
+    bool optional = attr.has_default_value();
+    ResolvedType type = type_resolver.TypeOf(attr, !optional);
+    if (!type.is_inferred) {
+      const string attr_name = SnakeToCamelCase(attr.name());
+      JavaType attr_type = type.dt;
+      if (type.is_list) {
+        attr_type = Java::ListOf(attr_type);
+      } else if (type.is_generic) {
+        attr_type = Java::Class("Class").param(attr_type);
+      }
+      tmpl.AddAttribute(Java::Var(attr_name, attr_type), optional);
+    }
   }
   for (const auto& output : op.output_arg()) {
     const string output_name = SnakeToCamelCase(output.name());
-    const ResolvedType type = type_resolver.OutputType(output, op);
-    if (Java::IsGeneric(type.tensor) && !IsParamOf(type.tensor, op_class)) {
-      op_class.param(type.tensor);
+    const ResolvedType type = type_resolver.TypeOf(output, op);
+    JavaType output_type = Java::Class("Output", "org.tensorflow")
+        .param(type.dt);
+    if (type.is_list) {
+      output_type = Java::ListOf(output_type);
     }
-    tmpl.AddOutput(Java::Var(output_name, type.var), type.is_new_generic);
-  }
-  for (const auto& attr : op.attr()) {
-    if (!type_resolver.IsInferred(attr)) {  // skip type attributes
-      const string attr_name = SnakeToCamelCase(attr.name());
-      const JavaType type = type_resolver.AttrType(attr);
-      tmpl.AddAttribute(Java::Var(attr_name, type), attr.has_default_value());
+    if (type.is_generic) {
+      tmpl.AddOutput(Java::Var(output_name, output_type), !type.is_inferred);
+      if (!IsParamOf(type.dt, op_class)) {
+        op_class.param(type.dt);
+      }
+    } else {
+      tmpl.AddOutput(Java::Var(output_name, output_type), false);
     }
   }
   tmpl.OpClass(op_class);

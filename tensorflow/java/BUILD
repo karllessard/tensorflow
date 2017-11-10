@@ -93,6 +93,7 @@ tf_java_op_gen_srcjar(
         "training_ops",
         "user_ops",
         "dataset_ops",
+        "summary_ops",
     ],
 )
 

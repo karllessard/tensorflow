@@ -19,8 +19,7 @@ limitations under the License.
 namespace tensorflow {
 namespace java {
 
-ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
-    bool allow_generic) {
+ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr) {
   std::map<string, ResolvedType>::const_iterator attr_type_it =
       resolved_attrs_.find(attr.name());
   if (attr_type_it != resolved_attrs_.cend()) {
@@ -32,7 +31,6 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
     attr_type = attr_type.substr(5, attr.type().find_last_of(')') - 5);
     type.is_list = true;
   }
-  bool is_type_attr = false;
   if (attr_type == "string") {
     type.dt = Java::Class("String");
   } else if (attr_type == "int") {
@@ -46,23 +44,21 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
   } else if (attr_type == "tensor") {
     type.dt = Java::Class("Tensor", "org.tensorflow").param(Java::Wildcard());
   } else if (attr_type == "type") {
-    is_type_attr = true;
-    if (!type.is_list && allow_generic) {
-      type.dt = GetNextGeneric();
-    } else {
+    if (type.is_list) {
       type.dt = Java::Enum("DataType", "org.tensorflow");
+    } else {
+      type.dt = GetNextGeneric();
     }
   } else {
     LOG(WARNING) << "Unsupported attribute type \"" << attr_type << "\"";
     type.dt = type.is_list ? Java::Wildcard() : Java::Class("Object");
   }
   std::pair<string, ResolvedType> attr_pair(attr.name(), type);
-  attr_pair.second.is_inferred = is_type_attr;
   resolved_attrs_.insert(attr_pair);
   return type;
 }
 
-ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op) {
+ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, bool is_input) {
   ResolvedType type;
   std::map<string, ResolvedType>::const_iterator attr_type_it;
   if (arg.type() != DataType::DT_INVALID) {
@@ -95,22 +91,22 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op) {
         break;
     }
   } else {
-    ResolvedType attr_type;
     string attr_name = arg.type_attr();
     if (attr_name.empty()) {
       attr_name = arg.type_list_attr();
-      attr_type.is_list = true;
+      type.is_list = true;
     }
     attr_type_it = resolved_attrs_.find(attr_name);
     if (attr_type_it != resolved_attrs_.cend()) {
-      attr_type = attr_type_it->second;
+      type.dt = attr_type_it->second.dt;
     } else {
-      attr_type.dt = attr_type.is_list ? Java::Wildcard() : GetNextGeneric();
-      attr_type.is_inferred = true;
+      ResolvedType attr_type;
+      attr_type.dt = type.is_list ? Java::Wildcard() : GetNextGeneric();
+      attr_type.is_inferred = is_input;
       resolved_attrs_.insert(
           std::pair<string, ResolvedType>(attr_name, attr_type));
+      type.dt = attr_type.dt;
     }
-    type = attr_type;
   }
   if (!arg.number_attr().empty()) {
     // Save number attribute in cache so we remember it is inferred

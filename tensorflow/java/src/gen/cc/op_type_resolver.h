@@ -25,7 +25,7 @@ namespace java {
 struct ResolvedType {
   JavaType dt;
   bool is_list = false;
-  bool is_inferred = false;
+  bool is_inferred = false;  // only true for attribute types
 };
 
 class OpTypeResolver {
@@ -33,8 +33,8 @@ class OpTypeResolver {
   OpTypeResolver() {}
   virtual ~OpTypeResolver() {}
 
-  ResolvedType TypeOf(const OpDef_ArgDef& arg, const OpDef& op);
-  ResolvedType TypeOf(const OpDef_AttrDef& attr, bool allow_generic);
+  ResolvedType TypeOf(const OpDef_ArgDef& arg, bool is_input);
+  ResolvedType TypeOf(const OpDef_AttrDef& attr);
 
  private:
   std::map<string, ResolvedType> resolved_attrs_;

@@ -83,26 +83,36 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
 
   for (const auto& input : op.input_arg()) {
     const string input_name = SnakeToCamelCase(input.name());
-    const ResolvedType type = type_resolver.TypeOf(input, op);
+    const ResolvedType type = type_resolver.TypeOf(input, true);
     JavaType input_type = Java::Interface("Operand", "org.tensorflow")
         .param(type.dt);
-    tmpl.AddInput(input_name, type.is_list ? Java::IterableOf(input_type) : input_type);
+    if (type.is_list) {
+      input_type = Java::IterableOf(input_type);
+    }
+    tmpl.AddInput(input_name, input_type);
   }
   for (const auto& attr : op.attr()) {
-    bool optional = attr.has_default_value();
-    ResolvedType type = type_resolver.TypeOf(attr, !optional);
+    ResolvedType type = type_resolver.TypeOf(attr);
     if (!type.is_inferred) {
       const string attr_name = SnakeToCamelCase(attr.name());
       JavaType attr_type = type.dt;
-      tmpl.AddAttribute(attr_name, type.is_list ? Java::ListOf(attr_type) : attr_type, optional);
+      if (type.is_list) {
+        attr_type = Java::ListOf(attr_type);
+      }
+      // Note: we do not support generic optional attributes yet
+      bool optional = attr.has_default_value() && !Java::IsGeneric(type.dt);
+      tmpl.AddAttribute(attr_name, attr_type, optional);
     }
   }
   for (const auto& output : op.output_arg()) {
     const string output_name = SnakeToCamelCase(output.name());
-    const ResolvedType type = type_resolver.TypeOf(output, op);
+    const ResolvedType type = type_resolver.TypeOf(output, false);
     JavaType output_type = Java::Class("Output", "org.tensorflow")
         .param(type.dt);
-    tmpl.AddOutput(output_name, type.is_list ? Java::ListOf(output_type) : output_type);
+    if (type.is_list) {
+      output_type = Java::ListOf(output_type);
+    }
+    tmpl.AddOutput(output_name, output_type);
     if (Java::IsGeneric(type.dt) && !IsParamOf(type.dt, op_class)) {
       op_class.param(type.dt);
     }

@@ -86,10 +86,7 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
     const ResolvedType type = type_resolver.TypeOf(input, op);
     JavaType input_type = Java::Interface("Operand", "org.tensorflow")
         .param(type.dt);
-    if (type.is_list) {
-      input_type = Java::IterableOf(input_type);
-    }
-    tmpl.AddInput(Java::Var(input_name, input_type));
+    tmpl.AddInput(input_name, type.is_list ? Java::IterableOf(input_type) : input_type);
   }
   for (const auto& attr : op.attr()) {
     bool optional = attr.has_default_value();
@@ -97,12 +94,7 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
     if (!type.is_inferred) {
       const string attr_name = SnakeToCamelCase(attr.name());
       JavaType attr_type = type.dt;
-      if (type.is_list) {
-        attr_type = Java::ListOf(attr_type);
-      } else if (type.is_generic) {
-        attr_type = Java::Class("Class").param(attr_type);
-      }
-      tmpl.AddAttribute(Java::Var(attr_name, attr_type), optional);
+      tmpl.AddAttribute(attr_name, type.is_list ? Java::ListOf(attr_type) : attr_type, optional);
     }
   }
   for (const auto& output : op.output_arg()) {
@@ -110,16 +102,9 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
     const ResolvedType type = type_resolver.TypeOf(output, op);
     JavaType output_type = Java::Class("Output", "org.tensorflow")
         .param(type.dt);
-    if (type.is_list) {
-      output_type = Java::ListOf(output_type);
-    }
-    if (type.is_generic) {
-      tmpl.AddOutput(Java::Var(output_name, output_type), !type.is_inferred);
-      if (!IsParamOf(type.dt, op_class)) {
-        op_class.param(type.dt);
-      }
-    } else {
-      tmpl.AddOutput(Java::Var(output_name, output_type), false);
+    tmpl.AddOutput(output_name, type.is_list ? Java::ListOf(output_type) : output_type);
+    if (Java::IsGeneric(type.dt) && !IsParamOf(type.dt, op_class)) {
+      op_class.param(type.dt);
     }
   }
   tmpl.OpClass(op_class);

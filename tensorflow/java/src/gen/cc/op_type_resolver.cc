@@ -21,10 +21,10 @@ namespace java {
 
 ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
     bool allow_generic) {
-  std::map<string, ResolvedType>::const_iterator it;
-  it = resolved_attrs_.find(attr.name());
-  if (it != resolved_attrs_.cend()) {
-    return it->second;
+  std::map<string, ResolvedType>::const_iterator attr_type_it =
+      resolved_attrs_.find(attr.name());
+  if (attr_type_it != resolved_attrs_.cend()) {
+    return attr_type_it->second;
   }
   ResolvedType type;
   string attr_type = attr.type();
@@ -32,6 +32,7 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
     attr_type = attr_type.substr(5, attr.type().find_last_of(')') - 5);
     type.is_list = true;
   }
+  bool is_type_attr = false;
   if (attr_type == "string") {
     type.dt = Java::Class("String");
   } else if (attr_type == "int") {
@@ -45,10 +46,9 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
   } else if (attr_type == "tensor") {
     type.dt = Java::Class("Tensor", "org.tensorflow").param(Java::Wildcard());
   } else if (attr_type == "type") {
+    is_type_attr = true;
     if (!type.is_list && allow_generic) {
-      type.dt = Java::Generic(string(1, next_generic_));
-      next_generic_ = (next_generic_ == 'Z') ? 'A' : next_generic_ + 1;
-      type.is_generic = true;
+      type.dt = GetNextGeneric();
     } else {
       type.dt = Java::Enum("DataType", "org.tensorflow");
     }
@@ -57,14 +57,14 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
     type.dt = type.is_list ? Java::Wildcard() : Java::Class("Object");
   }
   std::pair<string, ResolvedType> attr_pair(attr.name(), type);
-  attr_pair.second.is_inferred = type.is_generic;
+  attr_pair.second.is_inferred = is_type_attr;
   resolved_attrs_.insert(attr_pair);
   return type;
 }
 
 ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op) {
   ResolvedType type;
-  type.is_list = !arg.number_attr().empty();
+  std::map<string, ResolvedType>::const_iterator attr_type_it;
   if (arg.type() != DataType::DT_INVALID) {
     switch (arg.type()) {
       case DataType::DT_BOOL:
@@ -95,27 +95,42 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op) {
         break;
     }
   } else {
+    ResolvedType attr_type;
     string attr_name = arg.type_attr();
     if (attr_name.empty()) {
       attr_name = arg.type_list_attr();
+      attr_type.is_list = true;
     }
-    if (!attr_name.empty()) {
-      for (const auto& attr : op.attr()) {
-        if (attr.name() == attr_name) {
-          type = TypeOf(attr, true);
-          if (type.dt == Java::Enum("DataType", "org.tensorflow")) {
-            type.dt = Java::Wildcard();
-          }
-          break;
-        }
-      }
+    attr_type_it = resolved_attrs_.find(attr_name);
+    if (attr_type_it != resolved_attrs_.cend()) {
+      attr_type = attr_type_it->second;
+    } else {
+      attr_type.dt = attr_type.is_list ? Java::Wildcard() : GetNextGeneric();
+      attr_type.is_inferred = true;
+      resolved_attrs_.insert(
+          std::pair<string, ResolvedType>(attr_name, attr_type));
     }
-    if (type.dt.empty()) {
-        LOG(ERROR) << "Can't resolve type attribute for arg \"" + arg.name() + "\"";
-        type.dt = Java::Wildcard();
+    type = attr_type;
+  }
+  if (!arg.number_attr().empty()) {
+    // Save number attribute in cache so we remember it is inferred
+    attr_type_it = resolved_attrs_.find(arg.number_attr());
+    if (attr_type_it == resolved_attrs_.cend()) {
+      ResolvedType number_attr_type;
+      number_attr_type.dt = Java::Class("Integer");
+      number_attr_type.is_inferred = true;
+      resolved_attrs_.insert(
+          std::pair<string, ResolvedType>(arg.number_attr(), number_attr_type));
     }
+    type.is_list = true;
   }
   return type;
+}
+
+JavaType OpTypeResolver::GetNextGeneric() {
+  JavaType generic = Java::Generic(string(1, next_generic_));
+  next_generic_ = (next_generic_ == 'Z') ? 'A' : next_generic_ + 1;
+  return generic;
 }
 
 }  // namespace java

@@ -24,7 +24,6 @@ namespace java {
 
 struct ResolvedType {
   JavaType dt;
-  bool is_generic = false;
   bool is_list = false;
   bool is_inferred = false;
 };
@@ -40,6 +39,8 @@ class OpTypeResolver {
  private:
   std::map<string, ResolvedType> resolved_attrs_;
   char next_generic_ = 'T';
+
+  JavaType GetNextGeneric();
 };
 
 }  // namespace java

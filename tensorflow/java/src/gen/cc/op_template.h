@@ -56,16 +56,16 @@ class OpTemplate {
   }
 
   /// \brief Define an input to the operation
-  void AddInput(const JavaVar& input);
+  void AddInput(const string& name, const JavaType& type);
 
   /// \brief Define an output of the operation
-  void AddOutput(const JavaVar& output, bool declare_type = false);
+  void AddOutput(const string& name, const JavaType& type);
 
   /// \brief Define an attribute to the operation
   ///
   /// If the attribute has a default value when absent, it should be flagged
   /// as optional
-  void AddAttribute(const JavaVar& attr, bool optional);
+  void AddAttribute(const string& name, const JavaType& type, bool optional);
 
  private:
   enum RenderMode {
@@ -80,7 +80,6 @@ class OpTemplate {
   std::vector<JavaVar> attrs_;
   std::vector<JavaVar> opt_attrs_;
   std::vector<JavaVar> outputs_;
-  std::map<JavaType, JavaVar> declared_types_;
   bool has_typed_list_output = false;
 
   void AddVariable(const JavaVar& var, std::vector<JavaVar>* list);

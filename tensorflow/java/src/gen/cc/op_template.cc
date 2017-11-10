@@ -90,42 +90,34 @@ OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
   });
 }
 
-void OpTemplate::AddInput(const JavaVar& input) {
-  AddVariable(input, &inputs_);
-  if (Java::IsCollection(input.type())) {
+void OpTemplate::AddInput(const string& name, const JavaType& type) {
+  AddVariable(Java::Var(name, type), &inputs_);
+  if (Java::IsCollection(type)) {
     imports_.insert(Java::Class("Operands", "org.tensorflow.op"));
   }
 }
 
-void OpTemplate::AddOutput(const JavaVar& output, bool declare_type) {
-  AddVariable(output, &outputs_);
-  JavaType tensor_type = FindOutputTensorType(output.type());
-  if (Java::IsCollection(output.type())) {
+void OpTemplate::AddOutput(const string& name, const JavaType& type) {
+  AddVariable(Java::Var(name, type), &outputs_);
+  JavaType tensor_type = FindOutputTensorType(type);
+  if (Java::IsCollection(type)) {
     imports_.insert(Java::Class("Arrays", "java.util"));
     if (!Java::IsWildcard(tensor_type)) {
       has_typed_list_output = true;
     }
   }
-  if (declare_type) {
-    std::map<JavaType, JavaVar>::iterator it = declared_types_.find(tensor_type);
-    if (it == declared_types_.end()) {
-      string var_name(output.name() + "Type");
-      JavaVar var = Java::Var(var_name, Java::ClassOf(tensor_type));
-      var.doc_ptr()->brief("tensor type of output \"" + output.name() + "\"");
-      declared_types_.insert(std::pair<JavaType, JavaVar>(tensor_type, var));
-
-    } else {
-      const string brief = it->second.doc().brief();
-      it->second.doc_ptr()->brief(brief + " and \"" + output.name() + "\"");
-    }
-  }
 }
 
-void OpTemplate::AddAttribute(const JavaVar& attr, bool optional) {
-  AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
-  if (attr.type() == Java::Class("Class")) {
+void OpTemplate::AddAttribute(const string& name, const JavaType& type,
+    bool optional) {
+  JavaType var_type;
+  if (Java::IsGeneric(type)) {
+    var_type = Java::Class("Class").param(type);
     imports_.insert(Java::Enum("DataType", "org.tensorflow"));
+  } else {
+    var_type = type;
   }
+  AddVariable(Java::Var(name, var_type), optional ? &opt_attrs_ : &attrs_);
 }
 
 void OpTemplate::AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {
@@ -254,10 +246,6 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
     JavaVar options = Java::Var("options", Java::Class("Options"));
     options.doc_ptr()->brief("an object holding optional attributes values");
     factory.arg(options);
-  }
-  std::map<JavaType, JavaVar>::const_iterator it;
-  for (it = declared_types_.cbegin(); it != declared_types_.cend(); ++it) {
-    factory.arg(it->second);
   }
   JavaMethodWriter* factory_writer =
       op_writer->BeginMethod(factory, PUBLIC|STATIC)

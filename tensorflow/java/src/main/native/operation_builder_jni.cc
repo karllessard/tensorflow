@@ -262,6 +262,42 @@ JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setAttrShape(
   env->ReleaseStringUTFChars(name, cname);
 }
 
+JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setAttrShapeList(
+    JNIEnv* env, jclass clazz, jlong handle, jstring name, jlongArray shapes,
+    jintArray num_dims) {
+  TF_OperationDescription* d = requireHandle(env, handle);
+  if (d == nullptr) return;
+  std::unique_ptr<int64_t[]> cshapes;
+  std::unique_ptr<int64_t* []> cdims;
+  std::unique_ptr<int[]> cnum_dims;
+  const int num_dims_length = env->GetArrayLength(num_dims);
+  if (num_dims_length > 0) {
+    const int shapes_length = env->GetArrayLength(shapes);
+    cshapes.reset(new int64_t[shapes_length]);
+    jlong* shapes_elems = env->GetPrimitiveArrayCritical(shapes, nullptr);
+    for (int i = 0; i < shapes_length; ++i) {
+      cshapes[i] = static_cast<int64_t>(shapes_elems[i]);
+    }
+    env->ReleasePrimitiveArrayCritical(shapes, shapes_elems, JNI_ABORT);
+    cdims.reset(new int64_t* [num_dims_length]);
+    cnum_dims.reset(new int[num_dims_length]);
+    int64_t* cshapes_ptr = cshapes.get();
+    jint* num_dims_elems = env->GetPrimitiveArrayCritical(num_dims, nullptr);
+    for (int i = 0; i < num_dims_length; ++i) {
+      int num_dim_elem = num_dims_elems[i];
+      cnum_dims[i] = num_dim_elem;
+      if (num_dim_elem > 0) {
+        cdims[i] = cshapes_ptr;
+        cshapes_ptr += num_dim_elem;
+      }
+    }
+    env->ReleasePrimitiveArrayCritical(num_dims, num_dims_elems, JNI_ABORT);
+  }
+  const char* cname = env->GetStringUTFChars(name, nullptr);
+  TF_SetAttrShapeList(d, cname, cdims.get(), cnum_dims.get(), num_dims_length);
+  env->ReleaseStringUTFChars(name, cname);
+}
+
 JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setAttrStringList(
     JNIEnv* env, jclass object, jlong handle, jstring name,
     jobjectArray values) {

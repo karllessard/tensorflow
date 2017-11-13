@@ -172,7 +172,8 @@ def multi_label_head(n_classes,
     weight_column: A string or a `_NumericColumn` created by
       `tf.feature_column.numeric_column` defining feature column representing
       weights. It is used to down weight or boost examples during training. It
-      will be multiplied by the loss of the example.
+      will be multiplied by the loss of the example.  Per-class weighting is
+      not supported.
     thresholds: Iterable of floats in the range `(0, 1)`. Accuracy, precision
       and recall metrics are evaluated for each threshold value. The threshold
       is applied to the predicted probabilities, i.e. above the threshold is
@@ -289,8 +290,15 @@ class _MultiLabelHead(head_lib._Head):  # pylint:disable=protected-access
       # Averages loss over classes.
       unweighted_loss = math_ops.reduce_mean(
           unweighted_loss, axis=-1, keep_dims=True)
-    return head_lib.LossAndLabels(
-        unweighted_loss=unweighted_loss,
+    weights = head_lib._weights(features, self._weight_column)  # pylint:disable=protected-access,
+    weighted_sum_loss = losses.compute_weighted_loss(
+        unweighted_loss, weights=weights, reduction=losses.Reduction.SUM)
+    # _weights() can return 1.
+    example_weight_sum = math_ops.reduce_sum(
+        weights * array_ops.ones_like(unweighted_loss))
+    return head_lib.LossSpec(
+        weighted_sum_loss=weighted_sum_loss,
+        example_weight_sum=example_weight_sum,
         processed_labels=processed_labels)
 
   def create_estimator_spec(
@@ -321,22 +329,22 @@ class _MultiLabelHead(head_lib._Head):  # pylint:disable=protected-access
                     export_output.PredictOutput(predictions))
             })
 
+      (weighted_sum_loss, example_weight_sum,
+       processed_labels) = self.create_loss(
+           features=features, mode=mode, logits=logits, labels=labels)
+
       # Eval.
-      unweighted_loss, processed_labels = self.create_loss(
-          features=features, mode=mode, logits=logits, labels=labels)
-      weights = head_lib._weights(features, self._weight_column)  # pylint:disable=protected-access
-      training_loss = losses.compute_weighted_loss(
-          unweighted_loss, weights=weights, reduction=losses.Reduction.SUM)
       if mode == model_fn.ModeKeys.EVAL:
         return model_fn.EstimatorSpec(
             mode=model_fn.ModeKeys.EVAL,
             predictions=predictions,
-            loss=training_loss,
+            loss=weighted_sum_loss,
             eval_metric_ops=self._eval_metric_ops(
                 labels=processed_labels,
                 probabilities=probabilities,
-                weights=weights,
-                unweighted_loss=unweighted_loss))
+                weights=head_lib._weights(features, self._weight_column),  # pylint:disable=protected-access,
+                weighted_sum_loss=weighted_sum_loss,
+                example_weight_sum=example_weight_sum))
 
       # Train.
       if train_op_fn is None:
@@ -344,37 +352,43 @@ class _MultiLabelHead(head_lib._Head):  # pylint:disable=protected-access
     with ops.name_scope(''):
       summary.scalar(
           head_lib._summary_key(self._name, metric_keys.MetricKeys.LOSS),  # pylint:disable=protected-access
-          training_loss)
+          weighted_sum_loss)
       summary.scalar(
           head_lib._summary_key(  # pylint:disable=protected-access
               self._name, metric_keys.MetricKeys.LOSS_MEAN),
-          losses.compute_weighted_loss(
-              unweighted_loss, weights=weights,
-              reduction=losses.Reduction.MEAN))
+          weighted_sum_loss / example_weight_sum)
     return model_fn.EstimatorSpec(
         mode=model_fn.ModeKeys.TRAIN,
         predictions=predictions,
-        loss=training_loss,
-        train_op=train_op_fn(training_loss))
+        loss=weighted_sum_loss,
+        train_op=train_op_fn(weighted_sum_loss))
 
-  def _eval_metric_ops(self, labels, probabilities, weights, unweighted_loss):
+  def _eval_metric_ops(self, labels, probabilities, weights, weighted_sum_loss,
+                       example_weight_sum):
     """Returns a dict of metrics for eval_metric_ops."""
     with ops.name_scope(
-        None, 'metrics', [labels, probabilities, weights, unweighted_loss]):
+        None, 'metrics',
+        [labels, probabilities, weights, weighted_sum_loss, example_weight_sum
+        ]):
       keys = metric_keys.MetricKeys
       metric_ops = {
           # Estimator already adds a metric for loss.
           head_lib._summary_key(self._name, keys.LOSS_MEAN):  # pylint:disable=protected-access
               metrics_lib.mean(
-                  unweighted_loss, weights=weights, name=keys.LOSS_MEAN),
+                  # Both values and weights here are reduced, scalar Tensors.
+                  # values is the actual mean we want, but we pass the scalar
+                  # example_weight_sum in order to return the correct update_op
+                  # alongside the value_op for streaming metrics.
+                  values=(weighted_sum_loss / example_weight_sum),
+                  weights=example_weight_sum,
+                  name=keys.LOSS_MEAN),
           head_lib._summary_key(self._name, keys.AUC):  # pylint:disable=protected-access
-              metrics_lib.auc(
-                  labels=labels, predictions=probabilities, weights=weights,
-                  name=keys.AUC),
+              metrics_lib.auc(labels=labels, predictions=probabilities,
+                              weights=weights, name=keys.AUC),
           head_lib._summary_key(self._name, keys.AUC_PR):  # pylint:disable=protected-access
-              metrics_lib.auc(
-                  labels=labels, predictions=probabilities, weights=weights,
-                  curve='PR', name=keys.AUC_PR),
+              metrics_lib.auc(labels=labels, predictions=probabilities,
+                              weights=weights, curve='PR',
+                              name=keys.AUC_PR),
       }
       for threshold in self._thresholds:
         accuracy_key = keys.ACCURACY_AT_THRESHOLD % threshold
@@ -453,4 +467,3 @@ def _call_loss_fn(loss_fn, labels, logits, features):
           loss_shape])
   with ops.control_dependencies([check_shape_op]):
     return array_ops.identity(unweighted_loss)
-

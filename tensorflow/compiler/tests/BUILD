@@ -118,6 +118,18 @@ tf_xla_py_test(
 )
 
 tf_xla_py_test(
+    name = "categorical_op_test",
+    size = "small",
+    srcs = ["categorical_op_test.py"],
+    deps = [
+        ":xla_test",
+        "//tensorflow/python:framework_for_generated_wrappers",
+        "//tensorflow/python:platform_test",
+        "//tensorflow/python:random_ops",
+    ],
+)
+
+tf_xla_py_test(
     name = "clustering_test",
     size = "small",
     srcs = ["clustering_test.py"],
@@ -645,7 +657,7 @@ tf_library(
     cpp_class = "LSTMLayerInference",
     graph = "lstm_layer_inference.pbtxt",
     tags = ["manual"],
-    tfcompile_flags = "--xla_cpu_multi_thread_eigen=false",
+    tfcompile_flags = ["--xla_cpu_multi_thread_eigen=false"],
 )
 
 # -----------------------------------------------------------------------------

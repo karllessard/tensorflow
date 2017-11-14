@@ -90,39 +90,18 @@ OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
   });
 }
 
-void OpTemplate::AddInput(const string& name, const JavaType& type) {
-  AddVariable(Java::Var(name, type), &inputs_);
-  if (Java::IsCollection(type)) {
+void OpTemplate::AddInput(const JavaVar& input) {
+  AddVariable(input, &inputs_);
+  if (Java::IsCollection(input.type())) {
     imports_.insert(Java::Class("Operands", "org.tensorflow.op"));
   }
 }
 
-void OpTemplate::AddOutput(const string& name, const JavaType& type) {
-  AddVariable(Java::Var(name, type), &outputs_);
-  JavaType tensor_type = FindOutputTensorType(type);
-  if (Java::IsCollection(type)) {
+void OpTemplate::AddOutput(const JavaVar& output) {
+  AddVariable(output, &outputs_);
+  if (Java::IsCollection(output.type())) {
     imports_.insert(Java::Class("Arrays", "java.util"));
-    if (!Java::IsWildcard(tensor_type)) {
-      has_typed_list_output = true;
-    }
   }
-}
-
-void OpTemplate::AddAttribute(const string& name, const JavaType& type,
-    bool optional) {
-  JavaType var_type;
-  if (Java::IsGeneric(type)) {
-    var_type = Java::Class("Class").param(type);
-    imports_.insert(Java::Enum("DataType", "org.tensorflow"));
-  } else {
-    var_type = type;
-  }
-  AddVariable(Java::Var(name, var_type), optional ? &opt_attrs_ : &attrs_);
-}
-
-void OpTemplate::AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {
-  CollectImports(var.type());
-  list->push_back(var);
 }
 
 void OpTemplate::CollectImports(const JavaType& type) {
@@ -343,9 +322,8 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
       Java::Class("Operation", "org.tensorflow"));
 
   JavaMethod ctor = Java::ConstructorFor(op_class_).arg(operation);
-  if (has_typed_list_output) {
-      ctor.annotation(Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
-  }
+  ctor.annotation(Java::Annot("SuppressWarnings").attrs("\"unchecked\""));  // FIXME not always required!
+
   JavaMethodWriter* ctor_writer = op_writer->BeginMethod(ctor, PRIVATE);
   ctor_writer->WriteLine("super(operation);")
       ->WriteLine("int outputIdx = 0;");

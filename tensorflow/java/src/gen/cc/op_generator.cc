@@ -86,22 +86,23 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
     const ResolvedType type = type_resolver.TypeOf(input, true);
     JavaType input_type = Java::Interface("Operand", "org.tensorflow")
         .param(type.dt);
-    if (type.is_list) {
-      input_type = Java::IterableOf(input_type);
-    }
-    tmpl.AddInput(input_name, input_type);
+    JavaVar input_var = Java::Var(input_name,
+        type.is_list ? Java::IterableOf(input_type) : input_type);
+    tmpl.AddInput(input_var);
   }
   for (const auto& attr : op.attr()) {
     ResolvedType type = type_resolver.TypeOf(attr);
     if (!type.is_inferred) {
       const string attr_name = SnakeToCamelCase(attr.name());
-      JavaType attr_type = type.dt;
-      if (type.is_list) {
-        attr_type = Java::ListOf(attr_type);
+      if (Java::IsGeneric(type.dt) && !type.is_list) {
+        JavaVar attr_var = Java::Var(attr.name(),
+            Java::Class("Class").param(type.dt));
+        tmpl.AddTypeAttribute(attr_var);
+      } else {
+        JavaVar attr_var = Java::Var(attr_name,
+          type.is_list ? Java::ListOf(type.dt) : type.dt);
+        tmpl.AddAttribute(attr_var, attr.has_default_value());
       }
-      // Note: we do not support generic optional attributes yet
-      bool optional = attr.has_default_value() && !Java::IsGeneric(type.dt);
-      tmpl.AddAttribute(attr_name, attr_type, optional);
     }
   }
   for (const auto& output : op.output_arg()) {
@@ -109,10 +110,9 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
     const ResolvedType type = type_resolver.TypeOf(output, false);
     JavaType output_type = Java::Class("Output", "org.tensorflow")
         .param(type.dt);
-    if (type.is_list) {
-      output_type = Java::ListOf(output_type);
-    }
-    tmpl.AddOutput(output_name, output_type);
+    JavaVar output_var = Java::Var(output_name,
+        type.is_list ? Java::ListOf(output_type) : output_type);
+    tmpl.AddOutput(output_var);
     if (Java::IsGeneric(type.dt) && !IsParamOf(type.dt, op_class)) {
       op_class.param(type.dt);
     }

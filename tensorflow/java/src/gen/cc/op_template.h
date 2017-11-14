@@ -56,16 +56,24 @@ class OpTemplate {
   }
 
   /// \brief Define an input to the operation
-  void AddInput(const string& name, const JavaType& type);
+  void AddInput(const JavaVar& input);
 
   /// \brief Define an output of the operation
-  void AddOutput(const string& name, const JavaType& type);
+  void AddOutput(const JavaVar& output);
 
   /// \brief Define an attribute to the operation
   ///
   /// If the attribute has a default value when absent, it should be flagged
   /// as optional
-  void AddAttribute(const string& name, const JavaType& type, bool optional);
+  void AddAttribute(const JavaVar& attr, bool optional) {
+    AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
+  }
+
+  /// \brief Define an attribute providing a type for an operation
+  void AddTypeAttribute(const JavaVar& attr) {
+    AddVariable(attr, &attrs_);
+    imports_.insert(Java::Enum("DataType", "org.tensorflow"));
+  }
 
  private:
   enum RenderMode {
@@ -80,9 +88,11 @@ class OpTemplate {
   std::vector<JavaVar> attrs_;
   std::vector<JavaVar> opt_attrs_;
   std::vector<JavaVar> outputs_;
-  bool has_typed_list_output = false;
 
-  void AddVariable(const JavaVar& var, std::vector<JavaVar>* list);
+  void AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {
+    CollectImports(var.type());
+    list->push_back(var);
+  }
   void CollectImports(const JavaType& type);
   void Render(SourceWriter* src_writer);
   void RenderOptionsClass(JavaClassWriter* op_writer);

@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "tensorflow/java/src/main/native/operation_builder_jni.h"
 
+#include <cstring>
 #include <memory>
 #include "tensorflow/c/c_api.h"
 #include "tensorflow/java/src/main/native/exception_jni.h"
@@ -274,21 +275,20 @@ JNIEXPORT void JNICALL Java_org_tensorflow_OperationBuilder_setAttrShapeList(
   if (num_dims_length > 0) {
     const int shapes_length = env->GetArrayLength(shapes);
     cshapes.reset(new int64_t[shapes_length]);
-    jlong* shapes_elems = env->GetPrimitiveArrayCritical(shapes, nullptr);
-    for (int i = 0; i < shapes_length; ++i) {
-      cshapes[i] = static_cast<int64_t>(shapes_elems[i]);
-    }
-    env->ReleasePrimitiveArrayCritical(shapes, shapes_elems, JNI_ABORT);
     cdims.reset(new int64_t* [num_dims_length]);
     cnum_dims.reset(new int[num_dims_length]);
+    jlong* shapes_elems =
+        (jlong*) env->GetPrimitiveArrayCritical(shapes, nullptr);
+    std::memcpy(cshapes.get(), shapes_elems, shapes_length << 3);
+    env->ReleasePrimitiveArrayCritical(shapes, shapes_elems, JNI_ABORT);
     int64_t* cshapes_ptr = cshapes.get();
-    jint* num_dims_elems = env->GetPrimitiveArrayCritical(num_dims, nullptr);
+    jint* num_dims_elems =
+        (jint*) env->GetPrimitiveArrayCritical(num_dims, nullptr);
     for (int i = 0; i < num_dims_length; ++i) {
-      int num_dim_elem = num_dims_elems[i];
-      cnum_dims[i] = num_dim_elem;
-      if (num_dim_elem > 0) {
-        cdims[i] = cshapes_ptr;
-        cshapes_ptr += num_dim_elem;
+      cnum_dims[i] = static_cast<int>(num_dims_elems[i]);
+      cdims[i] = cshapes_ptr;
+      if (cnum_dims[i] > 0) {
+        cshapes_ptr += cnum_dims[i];
       }
     }
     env->ReleasePrimitiveArrayCritical(num_dims, num_dims_elems, JNI_ABORT);

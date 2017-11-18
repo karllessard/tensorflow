@@ -82,7 +82,6 @@ void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
 }  // namespace
 
 OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
-  // Import types we already know of
   imports_.insert({
     Java::Class("Operation", "org.tensorflow"),
     Java::Class("OperationBuilder", "org.tensorflow"),
@@ -186,7 +185,7 @@ void OpTemplate::Render(SourceWriter* src_writer) {
 void OpTemplate::RenderOptionsClass(JavaClassWriter* op_writer) {
     JavaType opt_class = Java::Class("Options");
     opt_class.doc_ptr()
-        ->brief("Class holding optional attributes of this operation");
+        ->descr("Class holding optional attributes of this operation");
 
     JavaClassWriter* opt_writer =
         op_writer->BeginInnerClass(opt_class, PUBLIC|STATIC);
@@ -212,10 +211,10 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
     bool with_options) {
 
   JavaVar scope = Java::Var("scope", Java::Class("Scope", "org.tensorflow.op"));
-  scope.doc_ptr()->brief("Current graph scope");
+  scope.doc_ptr()->descr("Current graph scope");
 
   JavaMethod factory = Java::Method("create", op_class_);
-  factory.doc_ptr()->brief("Factory method to create a class to wrap a new "
+  factory.doc_ptr()->descr("Factory method to create a class to wrap a new "
           + op_name_ + " operation to the graph.");
   factory.doc_ptr()->value("a new instance of " + op_class_.name());
   factory.arg(scope);
@@ -223,7 +222,7 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   factory.args(attrs_);
   if (with_options) {
     JavaVar options = Java::Var("options", Java::Class("Options"));
-    options.doc_ptr()->brief("an object holding optional attributes values");
+    options.doc_ptr()->descr("an object holding optional attributes values");
     factory.arg(options);
   }
   JavaMethodWriter* factory_writer =

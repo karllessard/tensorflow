@@ -30,7 +30,7 @@ typedef std::function<void(OpTemplate*, const string&)> TestFunc;
 JavaDoc GenerateDoc(const string& name) {
   JavaDoc doc;
   doc.brief("This is a short description of this " + name);
-  doc.description("This is a longer description of this " + name
+  doc.descr("This is a longer description of this " + name
      + " with multiple line breaks\n\n\nthat should all be prefixed by a star");
   return doc;
 }

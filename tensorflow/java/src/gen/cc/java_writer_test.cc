@@ -128,7 +128,7 @@ TEST(WriteClass, AnnotatedAndDocumentedClass) {
 
   JavaType clazz = Java::Class("Test", "org.test");
   clazz.doc_ptr()->brief("I am a class");
-  clazz.doc_ptr()->description("And I have a description");
+  clazz.doc_ptr()->descr("And I have a description");
   clazz.annotation(Java::Annot("Bean"));
   clazz.annotation(Java::Annot("SuppressWarnings").attrs("\"rawtypes\""));
   java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC)->EndOfClass();
@@ -287,7 +287,7 @@ TEST(WriteMethod, AnnotatedAndDocumentedMethod) {
 
   JavaMethod method = Java::Method("doNothing", Java::Type("void"));
   method.doc_ptr()->brief("A method that does nothing");
-  method.doc_ptr()->description("It really does nothing");
+  method.doc_ptr()->descr("It really does nothing");
   method.annotation(Java::Annot("Override"));
   method.annotation(Java::Annot("SuppressWarnings").attrs("\"rawtypes\""));
   clazz_writer->BeginMethod(method, PUBLIC)->EndOfMethod();

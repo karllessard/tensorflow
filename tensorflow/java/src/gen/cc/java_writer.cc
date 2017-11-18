@@ -115,16 +115,8 @@ void WriteDoc(const JavaDoc& doc, const std::vector<JavaVar>* params,
   }
   bool line_break = false;
   src_writer->Write("/**")->EndOfLine()->LinePrefix(" * ");
-  if (!doc.brief().empty()) {
-    src_writer->Inline(doc.brief())->EndOfLine();
-    line_break = true;
-  }
-  if (!doc.description().empty()) {
-    if (line_break) {
-      src_writer->Write("<p>")->EndOfLine();
-    }
-    src_writer->Inline(doc.description())
-        ->EndOfLine();
+  if (!doc.descr().empty()) {
+    src_writer->Inline(doc.descr())->EndOfLine();
     line_break = true;
   }
   if (params != NULL && !params->empty()) {
@@ -135,8 +127,8 @@ void WriteDoc(const JavaDoc& doc, const std::vector<JavaVar>* params,
     std::vector<JavaVar>::const_iterator it;
     for (it = params->begin(); it != params->end(); ++it) {
       src_writer->Write("@param ")->Write(it->name());
-      if (!it->doc().brief().empty()) {
-        src_writer->Write(" ")->Write(it->doc().brief());
+      if (!it->doc().descr().empty()) {
+        src_writer->Write(" ")->Write(it->doc().descr());
       }
       src_writer->EndOfLine();
     }

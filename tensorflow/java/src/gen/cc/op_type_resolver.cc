@@ -13,11 +13,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/java/src/gen/cc/op_type_resolver.h"
 
 namespace tensorflow {
 namespace java {
+namespace {
+
+bool IsRealNumber(DataType type) {
+  for (DataType dt : RealNumberTypes()) {
+    if (type == dt) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IsRealNumbers(const AttrValue& values) {
+  if (values.has_list()) {
+    for (int i = 0; i < values.list().type_size(); ++i) {
+      if (!IsRealNumber(values.list().type(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return IsRealNumber(values.type());
+}
+
+}  // namespace
 
 ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr) {
   std::map<string, ResolvedType>::const_iterator attr_type_it =
@@ -48,6 +73,11 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr) {
       type.dt = Java::Enum("DataType", "org.tensorflow");
     } else {
       type.dt = GetNextGeneric();
+      // if allowed types only include real numbers, enforce that the passed
+      // datatype extends java.lang.Number
+      if (IsRealNumbers(attr.allowed_values())) {
+        type.dt.supertype(Java::Class("Number"));
+      }
     }
   } else {
     LOG(WARNING) << "Unsupported attribute type \"" << attr_type << "\"";

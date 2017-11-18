@@ -45,6 +45,35 @@ string SnakeToCamelCase(const string& str, bool upper = false) {
   return result;
 }
 
+void ParseDescription(const string& descr, JavaDoc* doc) {
+  std::stringstream jdoc_descr;
+  bool newline = false;
+  for (std::string::const_iterator c = descr.cbegin(); c != descr.cend(); ++c) {
+    if (*c == '\n') {
+      if (newline) {
+        jdoc_descr << "<p>\n";
+      } else {
+        jdoc_descr << '\n';
+      }
+      newline = true;
+    } else {
+      switch (*c) {
+      case '`':
+        jdoc_descr << "&#96;";
+        break;
+      case '/':
+        jdoc_descr << "&#47;";
+        break;
+      default:
+        jdoc_descr << *c;
+        break;
+      }
+      newline = false;
+    }
+  }
+  doc->descr(jdoc_descr.str());
+}
+
 inline bool IsParamOf(const JavaType& type, const JavaType& clazz) {
   return std::find(clazz.params().begin(), clazz.params().end(), type)
       != clazz.params().end();
@@ -80,6 +109,7 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
   OpTemplate tmpl(op.name());
   const string package = base_package + '.' + str_util::Lowercase(op_group);
   JavaType op_class = Java::Class(op.name(), package);
+  ParseDescription(op.description(), op_class.doc_ptr());
 
   for (const auto& input : op.input_arg()) {
     const string input_name = SnakeToCamelCase(input.name());
@@ -88,6 +118,7 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
         .param(type.dt);
     JavaVar input_var = Java::Var(input_name,
         type.is_list ? Java::IterableOf(input_type) : input_type);
+    ParseDescription(input.description(), input_var.doc_ptr());
     tmpl.AddInput(input_var);
   }
   for (const auto& attr : op.attr()) {
@@ -97,10 +128,12 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
       if (Java::IsGeneric(type.dt) && !type.is_list) {
         JavaVar attr_var = Java::Var(attr.name(),
             Java::Class("Class").param(type.dt));
+        ParseDescription(attr.description(), attr_var.doc_ptr());
         tmpl.AddTypeAttribute(attr_var);
       } else {
         JavaVar attr_var = Java::Var(attr_name,
           type.is_list ? Java::ListOf(type.dt) : type.dt);
+        ParseDescription(attr.description(), attr_var.doc_ptr());
         tmpl.AddAttribute(attr_var, attr.has_default_value());
       }
     }
@@ -112,6 +145,7 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
         .param(type.dt);
     JavaVar output_var = Java::Var(output_name,
         type.is_list ? Java::ListOf(output_type) : output_type);
+    ParseDescription(output.description(), output_var.doc_ptr());
     tmpl.AddOutput(output_var);
     if (Java::IsGeneric(type.dt) && !IsParamOf(type.dt, op_class)) {
       op_class.param(type.dt);

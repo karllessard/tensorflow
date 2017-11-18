@@ -44,19 +44,16 @@ enum JavaModifier {
 /// JavaVariable).
 class JavaDoc {
  public:
-  const string& brief() const { return brief_; }
-  JavaDoc& brief(const string& brief) { brief_ = brief; return *this; }
-  const string& description() const { return description_; }
-  JavaDoc& description(const string& txt) { description_ = txt; return *this; }
+  const string& descr() const { return descr_; }
+  JavaDoc& descr(const string& txt) { descr_ = txt; return *this; }
   const string& value() const { return value_; }
   JavaDoc& value(const string& value) { value_ = value; return *this; }
   bool empty() const {
-    return brief().empty() && description().empty() && value().empty();
+    return descr().empty() && value().empty();
   }
 
  private:
-  string brief_;
-  string description_;
+  string descr_;
   string value_;
 };
 

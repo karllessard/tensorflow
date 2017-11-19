@@ -44,7 +44,8 @@ bool IsRealNumbers(const AttrValue& values) {
 
 }  // namespace
 
-ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr) {
+ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
+    bool is_inferred) {
   std::map<string, ResolvedType>::const_iterator attr_type_it =
       resolved_attrs_.find(attr.name());
   if (attr_type_it != resolved_attrs_.cend()) {
@@ -56,7 +57,13 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr) {
     attr_type = attr_type.substr(5, attr.type().find_last_of(')') - 5);
     type.is_list = true;
   }
-  if (attr_type == "string") {
+  if (attr_type == "type") {
+    if (type.is_list) {
+      type.dt = Java::Enum("DataType", "org.tensorflow");
+    } else {
+      type.dt = GetNextGeneric(attr.allowed_values());
+    }
+  } else if (attr_type == "string") {
     type.dt = Java::Class("String");
   } else if (attr_type == "int") {
     type.dt = Java::Class("Integer");
@@ -68,29 +75,19 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr) {
     type.dt = Java::Class("Shape", "org.tensorflow");
   } else if (attr_type == "tensor") {
     type.dt = Java::Class("Tensor", "org.tensorflow").param(Java::Wildcard());
-  } else if (attr_type == "type") {
-    if (type.is_list) {
-      type.dt = Java::Enum("DataType", "org.tensorflow");
-    } else {
-      type.dt = GetNextGeneric();
-      // if allowed types only include real numbers, enforce that the passed
-      // datatype extends java.lang.Number
-      if (IsRealNumbers(attr.allowed_values())) {
-        type.dt.supertype(Java::Class("Number"));
-      }
-    }
   } else {
     LOG(WARNING) << "Unsupported attribute type \"" << attr_type << "\"";
     type.dt = type.is_list ? Java::Wildcard() : Java::Class("Object");
   }
+  type.is_inferred = is_inferred;
   std::pair<string, ResolvedType> attr_pair(attr.name(), type);
   resolved_attrs_.insert(attr_pair);
   return type;
 }
 
-ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, bool is_input) {
+ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op,
+    bool is_input) {
   ResolvedType type;
-  std::map<string, ResolvedType>::const_iterator attr_type_it;
   if (arg.type() != DataType::DT_INVALID) {
     switch (arg.type()) {
       case DataType::DT_BOOL:
@@ -126,35 +123,33 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, bool is_input) {
       attr_name = arg.type_list_attr();
       type.is_list = true;
     }
-    attr_type_it = resolved_attrs_.find(attr_name);
-    if (attr_type_it != resolved_attrs_.cend()) {
-      type.dt = attr_type_it->second.dt;
-    } else {
-      ResolvedType attr_type;
-      attr_type.dt = type.is_list ? Java::Wildcard() : GetNextGeneric();
-      attr_type.is_inferred = is_input;
-      resolved_attrs_.insert(
-          std::pair<string, ResolvedType>(attr_name, attr_type));
-      type.dt = attr_type.dt;
+    for (const auto& attr : op.attr()) {
+      if (attr.name() == attr_name) {
+        ResolvedType attr_type = TypeOf(attr, is_input);
+        type.dt = type.is_list ? Java::Wildcard() : attr_type.dt;
+        break;
+      }
     }
   }
   if (!arg.number_attr().empty()) {
     // Save number attribute in cache so we remember it is inferred
-    attr_type_it = resolved_attrs_.find(arg.number_attr());
-    if (attr_type_it == resolved_attrs_.cend()) {
-      ResolvedType number_attr_type;
-      number_attr_type.dt = Java::Class("Integer");
-      number_attr_type.is_inferred = true;
-      resolved_attrs_.insert(
-          std::pair<string, ResolvedType>(arg.number_attr(), number_attr_type));
+    for (const auto& attr : op.attr()) {
+      if (attr.name() == arg.number_attr()) {
+        TypeOf(attr, true);
+      }
     }
     type.is_list = true;
   }
   return type;
 }
 
-JavaType OpTypeResolver::GetNextGeneric() {
+JavaType OpTypeResolver::GetNextGeneric(const AttrValue& allowed_values)  {
   JavaType generic = Java::Generic(string(1, next_generic_));
+  // if allowed types only include real numbers, enforce that the passed
+  // datatype extends java.lang.Number
+  if (IsRealNumbers(allowed_values)) {
+    generic.supertype(Java::Class("Number"));
+  }
   next_generic_ = (next_generic_ == 'Z') ? 'A' : next_generic_ + 1;
   return generic;
 }

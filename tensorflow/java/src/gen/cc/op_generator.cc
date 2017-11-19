@@ -113,7 +113,7 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
 
   for (const auto& input : op.input_arg()) {
     const string input_name = SnakeToCamelCase(input.name());
-    const ResolvedType type = type_resolver.TypeOf(input, true);
+    const ResolvedType type = type_resolver.TypeOf(input, op, true);
     JavaType input_type = Java::Interface("Operand", "org.tensorflow")
         .param(type.dt);
     JavaVar input_var = Java::Var(input_name,
@@ -140,7 +140,7 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
   }
   for (const auto& output : op.output_arg()) {
     const string output_name = SnakeToCamelCase(output.name());
-    const ResolvedType type = type_resolver.TypeOf(output, false);
+    const ResolvedType type = type_resolver.TypeOf(output, op, false);
     JavaType output_type = Java::Class("Output", "org.tensorflow")
         .param(type.dt);
     JavaVar output_var = Java::Var(output_name,

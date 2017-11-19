@@ -128,7 +128,7 @@ void WriteDoc(const JavaDoc& doc, const std::vector<JavaVar>* params,
     for (it = params->begin(); it != params->end(); ++it) {
       src_writer->Write("@param ")->Write(it->name());
       if (!it->doc().descr().empty()) {
-        src_writer->Write(" ")->Write(it->doc().descr());
+        src_writer->Write(" ")->Inline(it->doc().descr());
       }
       src_writer->EndOfLine();
     }
@@ -137,7 +137,7 @@ void WriteDoc(const JavaDoc& doc, const std::vector<JavaVar>* params,
     if (line_break) {
       src_writer->EndOfLine();
     }
-    src_writer->Inline("@return " + doc.value())->EndOfLine();
+    src_writer->Write("@return ")->Inline(doc.value())->EndOfLine();
   }
   src_writer->RemoveLinePrefix()->Write(" **/")->EndOfLine();
 }

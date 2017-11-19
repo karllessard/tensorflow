@@ -33,14 +33,14 @@ class OpTypeResolver {
   OpTypeResolver() {}
   virtual ~OpTypeResolver() {}
 
-  ResolvedType TypeOf(const OpDef_ArgDef& arg, bool is_input);
-  ResolvedType TypeOf(const OpDef_AttrDef& attr);
+  ResolvedType TypeOf(const OpDef_ArgDef& arg, const OpDef& op, bool is_input);
+  ResolvedType TypeOf(const OpDef_AttrDef& attr, bool is_inferred = false);
 
  private:
   std::map<string, ResolvedType> resolved_attrs_;
   char next_generic_ = 'T';
 
-  JavaType GetNextGeneric();
+  JavaType GetNextGeneric(const AttrValue& allowed_values);
 };
 
 }  // namespace java

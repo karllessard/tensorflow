@@ -15,7 +15,40 @@ limitations under the License.
 
 package org.tensorflow.types;
 
-/** Represents an 8-bit unsigned integer. */
-public class UInt8 {
+/** 
+ * Represents an 8-bit unsigned integer. 
+ * <p> 
+ * Since UInt8 is a real number type, it must extend from java.lang.Number like any other
+ * type of that group ({@link Integer}, {@link Float}, etc.). This way, it is possible
+ * to check at compile-time that a given tensor can only be composed of real numbers by
+ * using generics, e.g. {@code Output<T extends Number> output = aRealNumberOp.output()}.
+ */
+public class UInt8 extends Number {
+
+  private static final long serialVersionUID = 1L;
+
   private UInt8() {}
+
+  // Since this type is only used as a marker, we do not need to support
+  // real number conversions, only to stub them.
+  
+  @Override
+  public double doubleValue() {
+    return 0;
+  }
+
+  @Override
+  public float floatValue() {
+    return 0;
+  }
+
+  @Override
+  public int intValue() {
+    return 0;
+  }
+
+  @Override
+  public long longValue() {
+    return 0;
+  }
 }

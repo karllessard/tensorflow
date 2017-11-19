@@ -234,6 +234,9 @@ JavaMethodWriter* JavaMethodWriter::Begin(const JavaMethod& method,
         src_writer_->Write(", ");
       }
       Write(arg->type());
+      if (arg->periodic()) {
+        src_writer_->Write("...");
+      }
       src_writer_->Write(" ")->Write(arg->name());
     }
   }

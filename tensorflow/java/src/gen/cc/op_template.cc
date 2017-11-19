@@ -46,7 +46,7 @@ const std::map<string, JavaType> kPrimitiveAttrTypes = {
 
 void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
     bool optional) {
-  string var_name = optional ? "options." + attr.name() : attr.name();
+  string var_name = optional ? "opts." + attr.name() : attr.name();
   if (Java::IsCollection(attr.type())) {
     const JavaType& type = attr.type().params().front();
     std::map<string, JavaType>::const_iterator it =
@@ -168,14 +168,10 @@ void OpTemplate::Render(SourceWriter* src_writer) {
       io::JoinPath(kGenResourcePath, "licence.snippet.java"));
   JavaClassWriter* op_writer =
       writer.BeginClass(op_class, imports_, PUBLIC|FINAL);
-  bool has_options = !opt_attrs_.empty();
-  if (has_options) {
+  if (!opt_attrs_.empty()) {
     RenderOptionsClass(op_writer);
   }
-  RenderFactoryMethod(op_writer, false);
-  if (has_options) {
-    RenderFactoryMethod(op_writer, true);
-  }
+  RenderFactoryMethod(op_writer);
   RenderMethods(op_writer, mode, single_type);
   op_writer->WriteFields(outputs_, PRIVATE);
   RenderConstructor(op_writer);
@@ -207,9 +203,7 @@ void OpTemplate::RenderOptionsClass(JavaClassWriter* op_writer) {
     opt_writer->EndOfClass();
 }
 
-void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
-    bool with_options) {
-
+void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer) {
   JavaVar scope = Java::Var("scope", Java::Class("Scope", "org.tensorflow.op"));
   scope.doc_ptr()->descr("Current graph scope");
 
@@ -220,8 +214,8 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   factory.arg(scope);
   factory.args(inputs_);
   factory.args(attrs_);
-  if (with_options) {
-    JavaVar options = Java::Var("options", Java::Class("Options"));
+  if (!opt_attrs_.empty()) {
+    JavaVar options = Java::PeriodicVar("options", Java::Class("Options"));
     options.doc_ptr()->descr("an object holding optional attributes values");
     factory.arg(options);
   }
@@ -244,12 +238,15 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer,
   for (var = attrs_.begin(); var != attrs_.end(); ++var) {
     WriteSetAttrDirective(*var, factory_writer, false);
   }
-  if (with_options) {
+  if (!opt_attrs_.empty()) {
+    factory_writer->BeginBlock("if (options != null)")
+        ->BeginBlock("for (Options opts : options)");
     for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
-      factory_writer->BeginBlock("if (options." + var->name() + " != null)");
+      factory_writer->BeginBlock("if (opts." + var->name() + " != null)");
       WriteSetAttrDirective(*var, factory_writer, true);
       factory_writer->EndOfBlock();
     }
+    factory_writer->EndOfBlock()->EndOfBlock();
   }
   factory_writer->Write("return new ")
       ->Write(op_class_)

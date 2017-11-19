@@ -96,7 +96,7 @@ class OpTemplate {
   void CollectImports(const JavaType& type);
   void Render(SourceWriter* src_writer);
   void RenderOptionsClass(JavaClassWriter* op_writer);
-  void RenderFactoryMethod(JavaClassWriter* op_writer, bool with_options);
+  void RenderFactoryMethod(JavaClassWriter* op_writer);
   void RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
       const JavaType& single_type);
   void RenderConstructor(JavaClassWriter* op_writer);

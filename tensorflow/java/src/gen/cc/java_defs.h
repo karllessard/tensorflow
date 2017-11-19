@@ -151,6 +151,7 @@ class JavaVar {
   JavaVar() = default;
   const string& name() const { return name_; }
   const JavaType& type() const { return type_; }
+  bool periodic() const { return periodic_; }
   const JavaDoc& doc() const { return doc_; }
   JavaDoc* doc_ptr() { return &doc_; }
   JavaVar& doc(const JavaDoc& doc) { doc_ = doc; return *this; }
@@ -158,10 +159,11 @@ class JavaVar {
  private:
   string name_;
   JavaType type_;
+  bool periodic_ = false;
   JavaDoc doc_;
 
-  JavaVar(const string& name, const JavaType& type)
-    : name_(name), type_(type) {}
+  JavaVar(const string& name, const JavaType& type, bool periodic = false)
+    : name_(name), type_(type), periodic_(periodic) {}
 
   friend class Java;
 };
@@ -242,6 +244,10 @@ class Java {
   /// Returns the definition of Java variable
   static JavaVar Var(const string& name, const JavaType& type) {
     return JavaVar(name, type);
+  }
+  /// Returns the definition of Java periodic variable
+  static JavaVar PeriodicVar(const string& name, const JavaType& type) {
+    return JavaVar(name, type, true);
   }
   /// Returns the definition of Java class method
   static JavaMethod Method(const string& name, const JavaType& return_type) {

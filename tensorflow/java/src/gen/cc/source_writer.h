@@ -34,8 +34,11 @@ namespace tensorflow {
 /// language-specific features.
 class SourceWriter {
  public:
-  SourceWriter() : new_line(true) {}
+  SourceWriter() : newline_(true) {}
   virtual ~SourceWriter() {}
+
+  /// \brief Returns true if the writer is at the beginnig of a new line
+  bool newline() const { return newline_; }
 
   /// \brief Appends a piece of code or text.
   ///
@@ -63,8 +66,8 @@ class SourceWriter {
   /// spaces. Then calling Indent(-2) will outdent the code back to 2 white
   /// spaces.
   SourceWriter* Indent(int tab) {
-    left_margin.resize(
-        std::max(static_cast<int>(left_margin.size() + tab), 0), ' ');
+    left_margin_.resize(
+        std::max(static_cast<int>(left_margin_.size() + tab), 0), ' ');
     return this;
   }
 
@@ -75,13 +78,13 @@ class SourceWriter {
   /// The prefix is written after the indentation, For example, invoking
   /// Indent(2)->Prefix("//") will result in prefixing lines with "  //".
   SourceWriter* LinePrefix(const char* line_prefix) {
-    this->line_prefix = line_prefix;
+    this->line_prefix_ = line_prefix;
     return this;
   }
 
   /// \brief Removes the actual line prefix, if any.
   SourceWriter* RemoveLinePrefix() {
-    this->line_prefix.clear();
+    this->line_prefix_.clear();
     return this;
   }
 
@@ -89,9 +92,9 @@ class SourceWriter {
   virtual void Append(const StringPiece& str) = 0;
 
  private:
-  string left_margin;
-  string line_prefix;
-  bool new_line;
+  string left_margin_;
+  string line_prefix_;
+  bool newline_;
 };
 
 /// \brief A writer outputing source code into a file.

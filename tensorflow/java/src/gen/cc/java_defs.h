@@ -44,20 +44,29 @@ enum JavaModifier {
 /// JavaVariable).
 class JavaDoc {
  public:
-  const string& brief() const { return brief_; }
-  JavaDoc& brief(const string& brief) { brief_ = brief; return *this; }
-  const string& description() const { return description_; }
-  JavaDoc& description(const string& txt) { description_ = txt; return *this; }
+  const string& descr() const { return descr_; }
+  JavaDoc& descr(const string& txt) { descr_ = txt; return *this; }
   const string& value() const { return value_; }
   JavaDoc& value(const string& value) { value_ = value; return *this; }
   bool empty() const {
-    return brief().empty() && description().empty() && value().empty();
+    return descr().empty() && value().empty();
   }
 
  private:
-  string brief_;
-  string description_;
+  string descr_;
   string value_;
+};
+
+/// \brief A piece of code to read from a file.
+class JavaSnippet {
+ public:
+  explicit JavaSnippet(const string& fname, Env* env = Env::Default()) {
+    TF_CHECK_OK(ReadFileToString(env, fname, &data_));
+  }
+  const string& data() const { return data_; }
+
+ private:
+  string data_;
 };
 
 class JavaAnnot;
@@ -150,6 +159,7 @@ class JavaVar {
   JavaVar() = default;
   const string& name() const { return name_; }
   const JavaType& type() const { return type_; }
+  bool periodic() const { return periodic_; }
   const JavaDoc& doc() const { return doc_; }
   JavaDoc* doc_ptr() { return &doc_; }
   JavaVar& doc(const JavaDoc& doc) { doc_ = doc; return *this; }
@@ -157,10 +167,11 @@ class JavaVar {
  private:
   string name_;
   JavaType type_;
+  bool periodic_ = false;
   JavaDoc doc_;
 
-  JavaVar(const string& name, const JavaType& type)
-    : name_(name), type_(type) {}
+  JavaVar(const string& name, const JavaType& type, bool periodic = false)
+    : name_(name), type_(type), periodic_(periodic) {}
 
   friend class Java;
 };
@@ -237,6 +248,10 @@ class Java {
   /// Returns the definition of Java variable
   static JavaVar Var(const string& name, const JavaType& type) {
     return JavaVar(name, type);
+  }
+  /// Returns the definition of periodic Java variable
+  static JavaVar PeriodicVar(const string& name, const JavaType& type) {
+    return JavaVar(name, type, true);
   }
   /// Returns the definition of Java class method
   static JavaMethod Method(const string& name, const JavaType& return_type) {

@@ -22,9 +22,9 @@ namespace tensorflow {
 
 SourceWriter* SourceWriter::Write(const StringPiece& str) {
   if (!str.empty()) {
-    if (new_line) {
-      Append(left_margin + line_prefix);
-      new_line = false;
+    if (newline_) {
+      Append(left_margin_ + line_prefix_);
+      newline_ = false;
     }
     Append(str);
   }
@@ -39,7 +39,7 @@ SourceWriter* SourceWriter::Inline(const string& str) {
     if (line_pos != string::npos) {
       ++line_pos;
       Write(StringPiece(str.data() + start_pos, line_pos - start_pos));
-      new_line = true;
+      newline_ = true;
     } else {
       Write(StringPiece(str.data() + start_pos, str.size() - start_pos));
     }
@@ -51,7 +51,7 @@ SourceWriter* SourceWriter::Inline(const string& str) {
 SourceWriter* SourceWriter::EndOfLine() {
   static const StringPiece eol("\n");
   Write(eol);
-  new_line = true;
+  newline_ = true;
   return this;
 }
 

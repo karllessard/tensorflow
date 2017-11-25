@@ -14,10 +14,7 @@ load(
     "tf_copts",
     "tf_custom_op_library",
     "tf_java_test",
-<<<<<<< HEAD
     "tf_cc_test",
-=======
->>>>>>> refs/remotes/origin/java-source-writer
     "tf_cc_tests",
 )
 
@@ -333,7 +330,6 @@ filegroup(
     ]),
 )
 
-<<<<<<< HEAD
 java_test(
     name = "OpTemplateCompilationTest",
     size = "small",
@@ -384,12 +380,6 @@ tf_cc_tests(
             "src/gen/cc/op_template_test.cc",
         ],
     ),
-=======
-tf_cc_tests(
-    name = "java_op_gen_cc_tests",
-    size = "small",
-    srcs = glob(["src/gen/cc/*_test.cc"]),
->>>>>>> refs/remotes/origin/java-source-writer
     deps = [
         ":java_op_gen_lib",
         "//tensorflow/core:framework",

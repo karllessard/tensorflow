@@ -80,7 +80,7 @@ class JavaAnnot;
 class JavaType {
  public:
   enum Kind {
-    PRIMITIVE, CLASS, INTERFACE, GENERIC, ANNOTATION, NONE
+    PRIMITIVE, CLASS, ENUM, INTERFACE, GENERIC, ANNOTATION, NONE
   };
   JavaType() = default;
   const Kind& kind() const { return kind_; }
@@ -114,8 +114,13 @@ class JavaType {
   template <class TypeScanner>
   void Scan(TypeScanner* scanner) const;
 
-  /// For sets
-  bool operator<(const JavaType& type) const { return name() < type.name(); }
+  bool operator<(const JavaType& type) const {
+    return name_ < type.name_ || package_ < type.package_; }
+  bool operator==(const JavaType& type) const {
+    return name_ == type.name_ && package_ == type.package_;
+  }
+  bool operator!=(const JavaType& type) const { return !(*this == type); }
+
 
  private:
   Kind kind_ = NONE;
@@ -229,6 +234,10 @@ class Java {
   /// Returns the definition of a Java class
   static JavaType Class(const string& name, const string& package = "") {
     return JavaType(JavaType::CLASS, name, package);
+  }
+  /// Returns the definition of a Java enum
+  static JavaType Enum(const string& name, const string& package = "") {
+    return JavaType(JavaType::ENUM, name, package);
   }
   /// Returns the definition of a Java interface
   static JavaType Interface(const string& name, const string& package = "") {

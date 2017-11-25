@@ -53,28 +53,26 @@ void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
       kPrimitiveAttrTypes.find(type.name());
     if (it != kPrimitiveAttrTypes.end()) {
       string array_name = attr.name() + "Array";
-      writer->Write(it->second)
-          ->Write("[] " + array_name + " = new ")
-          ->Write(it->second)
-          ->WriteLine("[" + var_name + ".size()];");
-      writer->BeginBlock("for (int i = 0; i < " + array_name + ".length; ++i)")
-          ->WriteLine(array_name + "[i] = " + var_name + ".get(i);")
-          ->EndOfBlock();
-      writer->WriteLine("opBuilder.setAttr(\"" + attr.name() + "\", "
-          + array_name + ");");
+      *writer << it->second << "[] " << array_name << " = new " << it->second
+          << "[" << var_name << ".size()];" << endl
+          << "for (int i = 0; i < " << array_name << ".length; ++i)"
+          << beginb
+          << array_name << "[i] = " << var_name << ".get(i);" << endl
+          << endb
+          << "opBuilder.setAttr(\"" << attr.name() << "\", "
+          << array_name << ");" << endl;
     } else {
-      writer->Write("opBuilder.setAttr(\"" + attr.name() + "\", ")
-          ->Write(var_name + ".toArray(new ")
-          ->Write(type)
-          ->WriteLine("[" + var_name + ".size()]));");
+      *writer << "opBuilder.setAttr(\"" << attr.name() << "\", " << var_name
+          << ".toArray(new " << type << "[" << var_name << ".size()]));"
+          << endl;
     }
   } else {
     JavaType type = attr.type();
-    writer->Write("opBuilder.setAttr(\"" + attr.name() + "\", ");
+    *writer << "opBuilder.setAttr(\"" << attr.name() << "\", ";
     if (type == Java::Class("Class")) {
-      writer->WriteLine("DataType.fromClass(" + attr.name() + "));");
+      *writer << "DataType.fromClass(" << attr.name() << "));" << endl;
     } else {
-      writer->WriteLine(var_name + ");");
+      *writer << var_name << ");" << endl;
     }
   }
 }
@@ -164,8 +162,7 @@ void OpTemplate::Render(SourceWriter* src_writer) {
 
   // Render the op class to the selected target
   JavaWriter writer(src_writer);
-  writer.WriteSnippet(
-      io::JoinPath(kGenResourcePath, "licence.snippet.java"));
+  writer << JavaSnippet(io::JoinPath(kGenResourcePath, "licence.snippet.java"));
   JavaClassWriter* op_writer =
       writer.BeginClass(op_class, imports_, PUBLIC|FINAL);
   if (!opt_attrs_.empty()) {
@@ -175,7 +172,7 @@ void OpTemplate::Render(SourceWriter* src_writer) {
   RenderMethods(op_writer, mode, single_type);
   op_writer->WriteFields(outputs_, PRIVATE);
   RenderConstructor(op_writer);
-  op_writer->EndOfClass();
+  op_writer->EndClass();
 }
 
 void OpTemplate::RenderOptionsClass(JavaClassWriter* op_writer) {
@@ -191,16 +188,17 @@ void OpTemplate::RenderOptionsClass(JavaClassWriter* op_writer) {
       JavaMethod setter = Java::Method(var->name(), opt_class);
       setter.arg(*var);
 
-      opt_writer->BeginMethod(setter, PUBLIC)
-          ->WriteLine("this." + var->name() + " = " + var->name() + ";")
-          ->WriteLine("return this;")
-          ->EndOfMethod();
+      JavaMethodWriter* set_writer = opt_writer->BeginMethod(setter, PUBLIC);
+      *set_writer << "this." << var->name() << " = " << var->name()
+          << ";" << endl
+          << "return this;" << endl;
+      set_writer->EndMethod();
     }
     opt_writer->WriteFields(opt_attrs_, PRIVATE);
 
     JavaMethod opt_ctor = Java::ConstructorFor(opt_class);
-    opt_writer->BeginMethod(opt_ctor, PRIVATE)->EndOfMethod();
-    opt_writer->EndOfClass();
+    opt_writer->BeginMethod(opt_ctor, PRIVATE)->EndMethod();
+    opt_writer->EndClass();
 }
 
 void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer) {
@@ -219,39 +217,34 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer) {
     options.doc_ptr()->descr("an object holding optional attributes values");
     factory.arg(options);
   }
-  JavaMethodWriter* factory_writer =
-      op_writer->BeginMethod(factory, PUBLIC|STATIC)
-               ->WriteLine(string("OperationBuilder opBuilder = ")
-                   + "scope.graph().opBuilder(\"" + op_name_
-                   + "\", scope.makeOpName(\"" + op_name_ + "\"));");
-
+  JavaMethodWriter* fct_writer = op_writer->BeginMethod(factory, PUBLIC|STATIC);
+  *fct_writer << "OperationBuilder opBuilder = scope.graph().opBuilder(\""
+      << op_name_ << "\", scope.makeOpName(\"" << op_name_ << "\"));" << endl;
   std::vector<JavaVar>::const_iterator var;
   for (var = inputs_.begin(); var != inputs_.end(); ++var) {
     if (Java::IsCollection(var->type())) {
-      factory_writer->WriteLine(
-          "opBuilder.addInputList(Operands.asOutputs(" + var->name() + "));");
+      *fct_writer << "opBuilder.addInputList(Operands.asOutputs("
+          << var->name() << "));" << endl;
     } else {
-      factory_writer->WriteLine(
-          "opBuilder.addInput(" + var->name() + ".asOutput());");
+      *fct_writer << "opBuilder.addInput(" << var->name()
+          << ".asOutput());" << endl;
     }
   }
   for (var = attrs_.begin(); var != attrs_.end(); ++var) {
-    WriteSetAttrDirective(*var, factory_writer, false);
+    WriteSetAttrDirective(*var, fct_writer, false);
   }
   if (!opt_attrs_.empty()) {
-    factory_writer->BeginBlock("if (options != null)")
-        ->BeginBlock("for (Options opts : options)");
+    *fct_writer << "if (options != null)" << beginb
+        << "for (Options opts : options)" << beginb;
     for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
-      factory_writer->BeginBlock("if (opts." + var->name() + " != null)");
-      WriteSetAttrDirective(*var, factory_writer, true);
-      factory_writer->EndOfBlock();
+      *fct_writer << "if (opts." << var->name() << " != null)" << beginb;
+      WriteSetAttrDirective(*var, fct_writer, true);
+      *fct_writer << endb;
     }
-    factory_writer->EndOfBlock()->EndOfBlock();
+    *fct_writer << endb << endb;
   }
-  factory_writer->Write("return new ")
-      ->Write(op_class_)
-      ->WriteLine("(opBuilder.build());")
-      ->EndOfMethod();
+  *fct_writer << "return new " << op_class_ << "(opBuilder.build());" << endl;
+  fct_writer->EndMethod();
 }
 
 void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
@@ -262,18 +255,18 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
   for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
     JavaMethod setter = Java::Method(var->name(), Java::Class("Options"));
     setter.arg(*var);
-    op_writer->BeginMethod(setter, PUBLIC|STATIC)
-        ->WriteLine("return new Options()." + var->name() + "("
-            + var->name() + ");")
-        ->EndOfMethod();
+    JavaMethodWriter* set_writer = op_writer->BeginMethod(setter, PUBLIC|STATIC);
+    *set_writer << "return new Options()." << var->name() << "("
+            << var->name() << ");" << endl;
+    set_writer->EndMethod();
   }
   // Output getters
   for (var = outputs_.begin(); var != outputs_.end(); ++var) {
     JavaMethod getter = Java::Method(var->name(), var->type());
     getter.doc(var->doc());
-    op_writer->BeginMethod(getter, PUBLIC)
-        ->WriteLine("return " + var->name() + ";")
-        ->EndOfMethod();
+    JavaMethodWriter* get_writer = op_writer->BeginMethod(getter, PUBLIC);
+    *get_writer << "return " << var->name() << ";" << endl;
+    get_writer->EndMethod();
   }
   // Interface methods
   if (mode == SINGLE_OUTPUT) {
@@ -288,12 +281,13 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
       as_output.annotation(
           Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
     }
-    JavaMethodWriter* method_writer =
-        op_writer->BeginMethod(as_output, PUBLIC)->Write("return ");
+    JavaMethodWriter* out_writer = op_writer->BeginMethod(as_output, PUBLIC);
+    *out_writer << "return ";
     if (cast) {
-      method_writer->Write("(")->Write(return_type)->Write(") ");
+      *out_writer << "(" << return_type << ") ";
     }
-    method_writer->WriteLine(output.name() + ";")->EndOfMethod();
+    *out_writer << output.name() << ";" << endl;
+    out_writer->EndMethod();
 
   } else if (mode == SINGLE_LIST_OUTPUT) {
     JavaType operand = Java::Interface("Operand", "org.tensorflow");
@@ -306,10 +300,10 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
             .attrs("{\"rawtypes\", \"unchecked\"}"));
 
     // cast the output list using a raw List
-    op_writer->BeginMethod(iterator, PUBLIC)
-        ->WriteLine("return (" + return_type.name() + ") "
-            + outputs_.front().name() + ".iterator();")
-        ->EndOfMethod();
+    JavaMethodWriter* it_writer = op_writer->BeginMethod(iterator, PUBLIC);
+    *it_writer << "return (" << return_type.name() + ") "
+            << outputs_.front().name() << ".iterator();" << endl;
+    it_writer->EndMethod();
   }
 }
 
@@ -317,36 +311,34 @@ void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
   JavaVar operation = Java::Var("operation",
       Java::Class("Operation", "org.tensorflow"));
 
-  JavaMethod ctor = Java::ConstructorFor(op_class_).arg(operation);
-  ctor.annotation(Java::Annot("SuppressWarnings").attrs("\"unchecked\""));  // FIXME not always required!
+  JavaMethod constructor = Java::ConstructorFor(op_class_).arg(operation);
+  constructor.annotation(
+      Java::Annot("SuppressWarnings").attrs("\"unchecked\""));  // FIXME not always required!
 
-  JavaMethodWriter* ctor_writer = op_writer->BeginMethod(ctor, PRIVATE);
-  ctor_writer->WriteLine("super(operation);")
-      ->WriteLine("int outputIdx = 0;");
+  JavaMethodWriter* ctr_writer = op_writer->BeginMethod(constructor, PRIVATE);
+  *ctr_writer << "super(operation);" << endl
+      << "int outputIdx = 0;" << endl;
 
   std::vector<JavaVar>::const_iterator var;
   for (var = outputs_.begin(); var != outputs_.end(); ++var) {
     if (Java::IsCollection(var->type())) {
       string var_length_name = var->name() + "Length";
-      ctor_writer->WriteLine("int " + var_length_name
-          + " = operation.outputListLength(\"" + var->name() + "\");");
-
-      ctor_writer->Write(var->name() + " = Arrays.asList(");
+      *ctr_writer << "int " << var_length_name
+          << " = operation.outputListLength(\"" << var->name() << "\");"
+          << endl
+          << var->name() << " = Arrays.asList(";
       const JavaType& tensor_type = FindOutputTensorType(var->type());
       if (!Java::IsWildcard(tensor_type)) {
-        ctor_writer->Write("(")
-            ->Write(var->type().params().front())
-            ->Write("[])");
+        *ctr_writer << "(" << var->type().params().front() << "[])";
       }
-      ctor_writer->Write("operation.outputList(outputIdx, ")
-          ->WriteLine(var_length_name + "));")
-          ->WriteLine("outputIdx += " + var_length_name + ";");
-
+      *ctr_writer << "operation.outputList(outputIdx, " << var_length_name
+          << "));" << endl
+          << "outputIdx += " << var_length_name << ";" << endl;
     } else {
-      ctor_writer->WriteLine(var->name() + " = operation.output(outputIdx++);");
+      *ctr_writer << var->name() << " = operation.output(outputIdx++);" << endl;
     }
   }
-  ctor_writer->EndOfMethod();
+  ctr_writer->EndMethod();
 }
 
 }  // namespace java

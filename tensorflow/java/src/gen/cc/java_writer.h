@@ -34,17 +34,17 @@ namespace java {
 const char kGenResourcePath[] = "tensorflow/java/src/gen/resources/";
 
 /// \brief Manipulator inserting a newline character.
-void endl(SourceWriter* src_writer) {
+inline void endl(SourceWriter* src_writer) {
   src_writer->EndOfLine();
 }
 
 /// \brief Manipulator beginning a new indented block of code.
-void beginb(SourceWriter* src_writer) {
+inline void beginb(SourceWriter* src_writer) {
   src_writer->Write(src_writer->newline() ? "{" : " {")->EndOfLine()->Indent(2);
 }
 
 /// \brief Manipulator ending the current block of code.
-void endb(SourceWriter* src_writer) {
+inline void endb(SourceWriter* src_writer) {
   src_writer->Indent(-2)->Write("}")->EndOfLine();
 }
 

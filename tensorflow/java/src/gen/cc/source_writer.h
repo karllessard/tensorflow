@@ -126,7 +126,6 @@ class SourceBufferWriter : public SourceWriter {
   const string& ToString() {
     return *buffer_;
   }
-
  protected:
   void Append(const StringPiece& str) override {
     buffer_->append(str.begin(), str.end());

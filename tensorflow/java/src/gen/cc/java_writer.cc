@@ -27,6 +27,27 @@ namespace tensorflow {
 namespace java {
 namespace {
 
+/// \brief A function used to collect generic type parameters discovered while
+///        scanning an object for types (e.g. JavaMethod::ScanTypes)
+class GenericTypeScanner {
+ public:
+  explicit GenericTypeScanner(std::set<string>* declared_names)
+    : declared_names_(declared_names) {}
+  const std::vector<const JavaType*>& discoveredTypes() const {
+    return discovered_types_;
+  }
+  void operator()(const JavaType* type) {
+    if (type->kind() == JavaType::GENERIC && !type->name().empty()
+        && (declared_names_->find(type->name()) == declared_names_->end())) {
+      discovered_types_.push_back(type);
+      declared_names_->insert(type->name());
+    }
+  }
+ private:
+  std::vector<const JavaType*> discovered_types_;
+  std::set<string>* declared_names_;
+};
+
 void WriteModifiers(int modifiers, SourceWriter* src_writer) {
   if (modifiers & PUBLIC) {
     src_writer->Write("public ");

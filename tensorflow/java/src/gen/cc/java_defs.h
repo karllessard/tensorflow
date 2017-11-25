@@ -57,6 +57,19 @@ class JavaDoc {
   string value_;
 };
 
+
+/// \brief A piece of code to read from a file.
+class JavaSnippet {
+ public:
+  explicit JavaSnippet(const string& fname, Env* env = Env::Default()) {
+    TF_CHECK_OK(ReadFileToString(env, fname, &data_));
+  }
+  const string& data() const { return data_; }
+
+ private:
+  string data_;
+};
+
 class JavaAnnot;
 
 /// \brief A definition of any kind of Java type (classes, interfaces...)
@@ -67,7 +80,7 @@ class JavaAnnot;
 class JavaType {
  public:
   enum Kind {
-    PRIMITIVE, ENUM, CLASS, INTERFACE, GENERIC, ANNOTATION, NONE
+    PRIMITIVE, CLASS, INTERFACE, GENERIC, ANNOTATION, NONE
   };
   JavaType() = default;
   const Kind& kind() const { return kind_; }
@@ -101,12 +114,8 @@ class JavaType {
   template <class TypeScanner>
   void Scan(TypeScanner* scanner) const;
 
-  bool operator<(const JavaType& type) const {
-    return name_ < type.name_ || package_ < type.package_; }
-  bool operator==(const JavaType& type) const {
-    return name_ == type.name_ && package_ == type.package_;
-  }
-  bool operator!=(const JavaType& type) const { return !(*this == type); }
+  /// For sets
+  bool operator<(const JavaType& type) const { return name() < type.name(); }
 
  private:
   Kind kind_ = NONE;
@@ -194,7 +203,7 @@ class JavaMethod {
 
   /// Scans all types found in the signature of this method.
   template <class TypeScanner>
-  void ScanTypes(TypeScanner* scanner) const;
+  void ScanTypes(TypeScanner* scanner, bool scan_return_type) const;
 
  private:
   string name_;
@@ -216,10 +225,6 @@ class Java {
   /// Returns the definition of a Java primitive type
   static JavaType Type(const string& name) {
     return JavaType(JavaType::PRIMITIVE, name);
-  }
-  /// Returns the definition of a Java enumeration
-  static JavaType Enum(const string& name, const string& package = "") {
-    return JavaType(JavaType::ENUM, name, package);
   }
   /// Returns the definition of a Java class
   static JavaType Class(const string& name, const string& package = "") {
@@ -245,7 +250,7 @@ class Java {
   static JavaVar Var(const string& name, const JavaType& type) {
     return JavaVar(name, type);
   }
-  /// Returns the definition of Java periodic variable
+  /// Returns the definition of periodic Java variable
   static JavaVar PeriodicVar(const string& name, const JavaType& type) {
     return JavaVar(name, type, true);
   }
@@ -283,6 +288,27 @@ class Java {
   }
 };
 
+/// \brief A function used to collect generic type parameters discovered while
+///        scanning an object for types (e.g. JavaMethod::ScanTypes)
+class GenericTypeScanner {
+ public:
+  explicit GenericTypeScanner(std::set<string>* declared_names)
+    : declared_names_(declared_names) {}
+  const std::vector<const JavaType*>& discoveredTypes() const {
+    return discovered_types_;
+  }
+  void operator()(const JavaType* type) {
+    if (type->kind() == JavaType::GENERIC && !type->name().empty()
+        && (declared_names_->find(type->name()) == declared_names_->end())) {
+      discovered_types_.push_back(type);
+      declared_names_->insert(type->name());
+    }
+  }
+ private:
+  std::vector<const JavaType*> discovered_types_;
+  std::set<string>* declared_names_;
+};
+
 // Templates implementation
 
 template <class TypeScanner>
@@ -303,12 +329,14 @@ void JavaType::Scan(TypeScanner* scanner) const {
 }
 
 template <class TypeScanner>
-void JavaMethod::ScanTypes(TypeScanner* scanner) const {
+void JavaMethod::ScanTypes(TypeScanner* scanner, bool args_only) const {
+  if (!args_only && !type_.empty()) {
+    type_.Scan(scanner);
+  }
   for (std::vector<JavaVar>::const_iterator arg = args_.cbegin();
       arg != args_.cend(); ++arg) {
     arg->type().Scan(scanner);
   }
-  type_.Scan(scanner);
 }
 
 }  // namespace java

@@ -27,27 +27,6 @@ namespace tensorflow {
 namespace java {
 namespace {
 
-/// \brief A function used to collect generic type parameters discovered while
-///        scanning an object for types (e.g. JavaMethod::ScanTypes)
-class GenericTypeScanner {
- public:
-  explicit GenericTypeScanner(std::set<string>* declared_names)
-    : declared_names_(declared_names) {}
-  const std::vector<const JavaType*>& discoveredTypes() const {
-    return discovered_types_;
-  }
-  void operator()(const JavaType* type) {
-    if (type->kind() == JavaType::GENERIC && !type->name().empty()
-        && (declared_names_->find(type->name()) == declared_names_->end())) {
-      discovered_types_.push_back(type);
-      declared_names_->insert(type->name());
-    }
-  }
- private:
-  std::vector<const JavaType*> discovered_types_;
-  std::set<string>* declared_names_;
-};
-
 void WriteModifiers(int modifiers, SourceWriter* src_writer) {
   if (modifiers & PUBLIC) {
     src_writer->Write("public ");
@@ -116,7 +95,8 @@ void WriteDoc(const JavaDoc& doc, const std::vector<JavaVar>* params,
   bool line_break = false;
   src_writer->Write("/**")->EndOfLine()->LinePrefix(" * ");
   if (!doc.descr().empty()) {
-    src_writer->Inline(doc.descr())->EndOfLine();
+    src_writer->Inline(doc.descr())
+        ->EndOfLine();
     line_break = true;
   }
   if (params != NULL && !params->empty()) {
@@ -128,7 +108,7 @@ void WriteDoc(const JavaDoc& doc, const std::vector<JavaVar>* params,
     for (it = params->begin(); it != params->end(); ++it) {
       src_writer->Write("@param ")->Write(it->name());
       if (!it->doc().descr().empty()) {
-        src_writer->Write(" ")->Inline(it->doc().descr());
+        src_writer->Write(" ")->Write(it->doc().descr());
       }
       src_writer->EndOfLine();
     }
@@ -137,23 +117,16 @@ void WriteDoc(const JavaDoc& doc, const std::vector<JavaVar>* params,
     if (line_break) {
       src_writer->EndOfLine();
     }
-    src_writer->Write("@return ")->Inline(doc.value())->EndOfLine();
+    src_writer->Inline("@return " + doc.value())->EndOfLine();
   }
   src_writer->RemoveLinePrefix()->Write(" **/")->EndOfLine();
 }
 
 }  // namespace
 
-JavaBaseWriter* JavaBaseWriter::Write(const JavaType& type) {
+JavaSourceStream& JavaSourceStream::operator<<(const JavaType& type) {
   WriteType(type, src_writer_);
-  return this;
-}
-
-JavaBaseWriter* JavaBaseWriter::WriteSnippet(const string& fname, Env* env) {
-  string str;
-  TF_CHECK_OK(ReadFileToString(env, fname, &str));
-  src_writer_->Inline(str);
-  return this;
+  return *this;
 }
 
 JavaClassWriter* JavaClassWriter::Begin(const JavaType& clazz, int modifiers) {
@@ -164,42 +137,39 @@ JavaClassWriter* JavaClassWriter::Begin(const JavaType& clazz, int modifiers) {
     WriteAnnotations(clazz.annotations(), src_writer_);
   }
   WriteModifiers(modifiers, src_writer_);
-  src_writer_->Write("class ")->Write(clazz.name());
+  *this << "class " << clazz.name();
   if (!generics.discoveredTypes().empty()) {
     WriteGenerics(generics.discoveredTypes(), src_writer_);
   }
   if (!clazz.supertypes().empty()) {
     std::deque<JavaType>::const_iterator it = clazz.supertypes().cbegin();
     if (it->kind() == JavaType::CLASS) {  // superclass is always first in list
-      src_writer_->Write(" extends ");
-      Write(*it++);
+      *this << " extends " << *it++;
     }
     bool first_inf = true;
     while (it != clazz.supertypes().cend()) {
-      src_writer_->Write(first_inf ? " implements " : ", ");
-      Write(*it++);
+      *this << (first_inf ? " implements " : ", ") << *it++;
       first_inf = false;
     }
   }
-  JavaBaseWriter::BeginBlock();
+  *this << beginb;
   return this;
 }
 
 JavaClassWriter* JavaClassWriter::WriteFields(
     const std::vector<JavaVar>& fields, int modifiers) {
-  src_writer_->EndOfLine();
+  *this << endl;
   std::vector<JavaVar>::const_iterator it;
   for (it = fields.cbegin(); it != fields.cend(); ++it) {
     WriteModifiers(modifiers, src_writer_);
-    Write(it->type());
-    src_writer_->Write(" ")->Write(it->name())->Write(";")->EndOfLine();
+    *this << it->type() << " " << it->name() << ";" << endl;
   }
   return this;
 }
 
 JavaMethodWriter* JavaClassWriter::BeginMethod(const JavaMethod& method,
     int modifiers) {
-  src_writer_->EndOfLine();
+  *this << endl;
   WriteDoc(method.doc(), &method.args(), src_writer_);
   if (!method.annotations().empty()) {
     WriteAnnotations(method.annotations(), src_writer_);
@@ -216,38 +186,32 @@ JavaMethodWriter* JavaClassWriter::BeginMethod(const JavaMethod& method,
 JavaMethodWriter* JavaMethodWriter::Begin(const JavaMethod& method,
     int modifiers) {
   GenericTypeScanner generics(&declared_generics_);
-  method.ScanTypes(&generics);
+  method.ScanTypes(&generics, false);
   WriteModifiers(modifiers, src_writer_);
   if (!generics.discoveredTypes().empty()) {
     WriteGenerics(generics.discoveredTypes(), src_writer_);
-    src_writer_->Write(" ");
+    *this << " ";
   }
   if (!method.type().empty()) {
-    Write(method.type());
-    src_writer_->Write(" ");
+    *this << method.type() << " ";
   }
-  src_writer_->Write(method.name())->Write("(");
+  *this << method.name() << "(";
   if (!method.args().empty()) {
     for (std::vector<JavaVar>::const_iterator arg = method.args().cbegin();
         arg != method.args().cend(); ++arg) {
       if (arg != method.args().cbegin()) {
-        src_writer_->Write(", ");
+        *this << ", ";
       }
-      Write(arg->type());
-      if (arg->periodic()) {
-        src_writer_->Write("...");
-      }
-      src_writer_->Write(" ")->Write(arg->name());
+      *this << arg->type() << (arg->periodic() ? "... " : " ") << arg->name();
     }
   }
-  src_writer_->Write(")");
-  JavaBaseWriter::BeginBlock();
+  *this << ")" << beginb;
   return this;
 }
 
 JavaClassWriter* JavaClassWriter::BeginInnerClass(const JavaType& clazz,
     int modifiers) {
-  src_writer_->EndOfLine();
+  *this << endl;
   JavaClassWriter* class_writer;
   if (modifiers & STATIC) {
     class_writer = new JavaClassWriter(src_writer_);
@@ -259,16 +223,15 @@ JavaClassWriter* JavaClassWriter::BeginInnerClass(const JavaType& clazz,
 
 JavaClassWriter* JavaWriter::BeginClass(const JavaType& clazz,
     const std::set<JavaType>& imports, int modifiers) {
-  WriteLine("package " + clazz.package() + ";");
-  src_writer_->EndOfLine();
+  *this << "package " << clazz.package() << ";" << endl << endl;
   if (!imports.empty()) {
     std::set<JavaType>::const_iterator it;
     for (it = imports.cbegin(); it != imports.cend(); ++it) {
       if (!it->package().empty() && it->package() != clazz.package()) {
-        WriteLine("import " + it->package() + "." + it->name() + ";");
+        *this << "import " << it->package() << "." << it->name() << ";" << endl;
       }
     }
-    src_writer_->EndOfLine();
+    *this << endl;
   }
   JavaClassWriter* class_writer = new JavaClassWriter(src_writer_);
   return class_writer->Begin(clazz, modifiers);

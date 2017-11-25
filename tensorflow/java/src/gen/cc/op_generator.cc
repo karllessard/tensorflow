@@ -157,6 +157,5 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
   return Status::OK();
 }
 
-
 }  // namespace java
 }  // namespace tensorflow

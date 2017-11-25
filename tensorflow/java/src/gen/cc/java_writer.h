@@ -33,97 +33,75 @@ namespace java {
 /// Path to the directory containing resource files for this generator
 const char kGenResourcePath[] = "tensorflow/java/src/gen/resources/";
 
-/// \brief Base class for Java source code writers.
+/// \brief Manipulator inserting a newline character.
+void endl(SourceWriter* src_writer) {
+  src_writer->EndOfLine();
+}
+
+/// \brief Manipulator beginning a new indented block of code.
+void beginb(SourceWriter* src_writer) {
+  src_writer->Write(src_writer->newline() ? "{" : " {")->EndOfLine()->Indent(2);
+}
+
+/// \brief Manipulator ending the current block of code.
+void endb(SourceWriter* src_writer) {
+  src_writer->Indent(-2)->Write("}")->EndOfLine();
+}
+
+/// \brief Basic streamer for outputting Java source code.
 ///
-/// Specialized Java writers extends privately this class and might expose only
-/// a subset of its operations.
-class JavaBaseWriter {
+/// Specialized Java writers extends this class to expose common operators
+/// for writing basic java code.
+class JavaSourceStream {
  public:
-  explicit JavaBaseWriter(SourceWriter* src_writer) : src_writer_(src_writer) {}
-  virtual ~JavaBaseWriter() = default;
+  explicit JavaSourceStream(SourceWriter* src_writer)
+      : src_writer_(src_writer) {}
+  virtual ~JavaSourceStream() = default;
 
+  /// \brief Applies the given manipulator method to this writer.
+  JavaSourceStream& operator<<(void (*f)(SourceWriter*)) {
+    f(src_writer_);
+    return *this;
+  }
   /// \brief Writes a piece of code or text.
-  JavaBaseWriter* Write(const string& str) {
+  JavaSourceStream& operator<<(const string& str) {
     src_writer_->Write(str);
-    return this;
+    return *this;
   }
-  /// \brief Writes the signature of a type
-  JavaBaseWriter* Write(const JavaType& type);
+  /// \brief Writes a piece of code or text.
+  JavaSourceStream& operator<<(const char* str) {
+    src_writer_->Write(str);
+    return *this;
+  }
+  /// \brief Writes the signature of a type.
+  JavaSourceStream& operator<<(const JavaType& type);
 
-  /// \brief Writes the signature of an annotation
-  JavaBaseWriter* Write(const JavaAnnot& annot);
-
-  /// \brief Writes a line of code or text, empty string results in end-of-line
-  JavaBaseWriter* WriteLine(const string& str) {
-    src_writer_->Write(str)->EndOfLine();
-    return this;
-  }
-  /// \brief Begins a block of indented code prefixed with the provided
-  ///        expression (e.g. a condition).
-  JavaBaseWriter* BeginBlock(const string& expr) {
-    src_writer_->Write(expr);
-    return BeginBlock();
-  }
-  /// \brief Outdents and ends the current block.
-  JavaBaseWriter* EndOfBlock() {
-    src_writer_->Indent(-2)->Write("}")->EndOfLine();
-    return this;
-  }
-  /// \brief Writes a piece of code or text as read literally from a resource
-  ///        file.
+  /// \brief Writes a piece of code or text as read literally from a file.
   ///
   /// The snippet will be inlined at the current writing position, each line
   /// being indented properly.
-  JavaBaseWriter* WriteSnippet(const string& fname, Env* env = Env::Default());
+  JavaSourceStream& operator<<(const JavaSnippet& snippet) {
+    src_writer_->Inline(snippet.data());
+    return *this;
+  }
 
  protected:
   /// Underlying object to which we delegate the source code writing.
   SourceWriter* src_writer_;
-
-  /// \brief Begins a block of indented code.
-  JavaBaseWriter* BeginBlock() {
-    src_writer_->Write(" {")->EndOfLine()->Indent(2);
-    return this;
-  }
 };
 
 /// \brief A utility for writing Java class methods.
 ///
 /// This class can only be instantiated from a JavaClassWriter and should be
 /// deleted implicitely by invoking EndOfMethod.
-class JavaMethodWriter : private JavaBaseWriter {
+class JavaMethodWriter : public JavaSourceStream {
  public:
-  JavaMethodWriter* Write(const string& str) {
-    JavaBaseWriter::Write(str);
-    return this;
-  }
-  JavaMethodWriter* Write(const JavaType& type) {
-    JavaBaseWriter::Write(type);
-    return this;
-  }
-  JavaMethodWriter* WriteLine(const string& str = "") {
-    JavaBaseWriter::WriteLine(str);
-    return this;
-  }
-  JavaMethodWriter* BeginBlock(const string& expr) {
-    JavaBaseWriter::BeginBlock(expr);
-    return this;
-  }
-  JavaMethodWriter* EndOfBlock() {
-    JavaBaseWriter::EndOfBlock();
-    return this;
-  }
-  JavaMethodWriter* WriteSnippet(const string& fname,
-      Env* env = Env::Default()) {
-    JavaBaseWriter::WriteSnippet(fname, env);
-    return this;
-  }
   /// \brief Ends the current method.
   ///
   /// This writer will become obsolete and be automatically discarded. No
   /// more call should be attempted on it thereafter.
-  void EndOfMethod() {
-    JavaBaseWriter::EndOfBlock();
+  void EndMethod() {
+    *this << endb;
     delete this;
   }
 
@@ -131,9 +109,9 @@ class JavaMethodWriter : private JavaBaseWriter {
   std::set<string> declared_generics_;
 
   explicit JavaMethodWriter(SourceWriter* src_writer)
-    : JavaBaseWriter(src_writer) {}
+    : JavaSourceStream(src_writer) {}
   JavaMethodWriter(SourceWriter* src_writer, std::set<string> generics)
-    : JavaBaseWriter(src_writer), declared_generics_(generics) {}
+    : JavaSourceStream(src_writer), declared_generics_(generics) {}
   virtual ~JavaMethodWriter() = default;
 
   JavaMethodWriter* Begin(const JavaMethod& method, int modifiers);
@@ -146,21 +124,8 @@ class JavaMethodWriter : private JavaBaseWriter {
 /// This class can only be instantiated from a JavaWriter or from another
 /// JavaClassWriter when writing an inner class. It must be deleted implicitely
 /// by invoking EndOfClass.
-class JavaClassWriter : private JavaBaseWriter {
+class JavaClassWriter : public JavaSourceStream {
  public:
-  JavaClassWriter* BeginBlock(const string& expr) {
-    JavaBaseWriter::BeginBlock(expr);
-    return this;
-  }
-  JavaClassWriter* EndOfBlock() {
-    JavaBaseWriter::EndOfBlock();
-    return this;
-  }
-  JavaClassWriter* WriteSnippet(const string& fname,
-      Env* env = Env::Default()) {
-    JavaBaseWriter::WriteSnippet(fname, env);
-    return this;
-  }
   /// \brief Writes a list of variables as fields of this class.
   JavaClassWriter* WriteFields(const std::vector<JavaVar>& fields,
       int modifiers = 0);
@@ -181,8 +146,8 @@ class JavaClassWriter : private JavaBaseWriter {
   ///
   /// This writer will become obsolete and be automatically discarded. No
   /// more call should be attempted on it thereafter.
-  void EndOfClass() {
-    JavaBaseWriter::EndOfBlock();
+  void EndClass() {
+    *this << endb;
     delete this;
   }
 
@@ -190,9 +155,9 @@ class JavaClassWriter : private JavaBaseWriter {
   std::set<string> declared_generics_;
 
   explicit JavaClassWriter(SourceWriter* src_writer)
-    : JavaBaseWriter(src_writer) {}
+    : JavaSourceStream(src_writer) {}
   JavaClassWriter(SourceWriter* src_writer, std::set<string> generics)
-    : JavaBaseWriter(src_writer), declared_generics_(generics) {}
+    : JavaSourceStream(src_writer), declared_generics_(generics) {}
   virtual ~JavaClassWriter() = default;
 
   JavaClassWriter* Begin(const JavaType& clazz, int modifiers);
@@ -205,15 +170,12 @@ class JavaClassWriter : private JavaBaseWriter {
 /// It wraps a basic SourceWriter with an API specialized for writing Java
 /// source code and based on definitions found in java_defs.h. The underlying
 /// SourceWriter is not own by this object and should be released explicitly.
-class JavaWriter : private JavaBaseWriter {
+class JavaWriter : public JavaSourceStream {
  public:
-  explicit JavaWriter(SourceWriter* src_writer) : JavaBaseWriter(src_writer) {}
+  explicit JavaWriter(SourceWriter* src_writer)
+      : JavaSourceStream(src_writer) {}
   virtual ~JavaWriter() = default;
 
-  JavaWriter* WriteSnippet(const string& fname, Env* env = Env::Default()) {
-    JavaBaseWriter::WriteSnippet(fname, env);
-    return this;
-  }
   /// \brief Begins the main class.
   ///
   /// The returned writer should be used to write the content of the class and

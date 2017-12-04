@@ -108,7 +108,7 @@ void WriteDoc(const JavaDoc& doc, const std::vector<JavaVar>* params,
     for (it = params->begin(); it != params->end(); ++it) {
       src_writer->Write("@param ")->Write(it->name());
       if (!it->doc().descr().empty()) {
-        src_writer->Write(" ")->Write(it->doc().descr());
+        src_writer->Write(" ")->Inline(it->doc().descr());
       }
       src_writer->EndOfLine();
     }

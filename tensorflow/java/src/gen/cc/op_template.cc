@@ -219,7 +219,8 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer) {
   }
   JavaMethodWriter* fct_writer = op_writer->BeginMethod(factory, PUBLIC|STATIC);
   *fct_writer << "OperationBuilder opBuilder = scope.graph().opBuilder(\""
-      << op_name_ << "\", scope.makeOpName(\"" << op_name_ << "\"));" << endl;
+      << op_name_ << "\", scope.makeOpName(\"" << op_name_ << "\"));"
+      << endl;
   std::vector<JavaVar>::const_iterator var;
   for (var = inputs_.begin(); var != inputs_.end(); ++var) {
     if (Java::IsCollection(var->type())) {

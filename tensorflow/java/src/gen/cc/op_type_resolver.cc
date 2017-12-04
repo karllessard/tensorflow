@@ -111,6 +111,13 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op,
       case DataType::DT_INT64:
         type.dt = Java::Class("Long");
         break;
+      case DataType::DT_RESOURCE:
+        // TODO (karllessard) Create a Resource utility class that could be
+        // used to store a resource and its type (passed in a second argument).
+        // For now, we need to force a wildcard and we will unfortunately lose
+        // track of the resource type.
+        type.dt = Java::Wildcard();
+        break;
       default:
         LOG(WARNING) << "Unsupported data type " << arg.type() << " for arg \""
             + arg.name() + "\"";

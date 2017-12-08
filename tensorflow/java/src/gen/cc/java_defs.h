@@ -251,7 +251,7 @@ void Type::Scan(TypeScanner* scanner) const {
   }
   for (std::vector<Annotation>::const_iterator it = annotations_.cbegin();
       it != annotations_.cend(); ++it) {
-    it->type().Scan(scanner);
+    it->Scan(scanner);
   }
   for (std::deque<Type>::const_iterator it = supertypes_.cbegin();
       it != supertypes_.cend(); ++it) {

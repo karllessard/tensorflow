@@ -101,7 +101,9 @@ tf_java_op_gen_srcjar(
 # file before making it an executable. See tf_java_op_gen_srcjar().
 cc_library(
     name = "java_op_gen_tool",
-    srcs = glob(["src/gen/cc/op_gen_main.cc"]),
+    srcs = [
+        "src/gen/cc/op_gen_main.cc",
+    ],
     copts = tf_copts(),
     deps = [
         ":java_op_gen_lib",
@@ -110,16 +112,11 @@ cc_library(
 
 cc_library(
     name = "java_op_gen_lib",
-    srcs = glob(
-        [
-            "src/gen/cc/*.h",
-            "src/gen/cc/*.cc",
-        ],
-        exclude = [
-            "src/gen/cc/*_test.cc",
-            "src/gen/cc/op_gen_main.cc",
-        ],
-    ),
+    srcs = [
+        "src/gen/cc/op_generator.h",
+        "src/gen/cc/op_generator.cc",
+        "src/gen/cc/java_defs.h",
+    ],
     copts = tf_copts(),
     data = [":java_op_gen_resources"],
     deps = [
@@ -306,21 +303,6 @@ tf_java_test(
         "@junit",
     ],
 )
-
-#java_test(
-#    name = "OperatorProcessorTest",
-#    size = "small",
-#    srcs = ["src/test/java/org/tensorflow/processor/OperatorProcessorTest.java"],
-#    javacopts = JAVACOPTS,
-#    resources = [":processor_test_resources"],
-#    test_class = "org.tensorflow.processor.OperatorProcessorTest",
-#    deps = [
-#        ":processor_library",
-#        "//third_party/java/junit",
-#        "@com_google_testing_compile",
-#        "@com_google_truth",
-#    ],
-#)
 
 filegroup(
     name = "processor_test_resources",

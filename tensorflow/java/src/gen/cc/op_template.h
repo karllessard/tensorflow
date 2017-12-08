@@ -29,7 +29,7 @@ limitations under the License.
 namespace tensorflow {
 namespace java {
 
-/// \brief Template for rendering Java operations source code
+/// \brief Template for rendering  operations source code
 ///
 /// The ops generator collects operation data from the protobuf definitions
 /// and store it to this template. Once all data is collected, the template
@@ -51,28 +51,28 @@ class OpTemplate {
   ///
   /// Note that no supertype should be set explicitly in the class definition
   /// since they will (and must be) handle by the template itself.
-  void OpClass(const JavaType& op_class) {
+  void OpClass(const Type& op_class) {
     op_class_ = op_class;
   }
 
   /// \brief Define an input to the operation
-  void AddInput(const JavaVar& input);
+  void AddInput(const Variable& input);
 
   /// \brief Define an output of the operation
-  void AddOutput(const JavaVar& output);
+  void AddOutput(const Variable& output);
 
   /// \brief Define an attribute to the operation
   ///
   /// If the attribute has a default value when absent, it should be flagged
   /// as optional
-  void AddAttribute(const JavaVar& attr, bool optional) {
-    AddVariable(attr, optional ? &opt_attrs_ : &attrs_);
+  void AddAttribute(const Variable& attr, bool optional) {
+    AddVariableiable(attr, optional ? &opt_attrs_ : &attrs_);
   }
 
   /// \brief Define an attribute providing a type for an operation
-  void AddTypeAttribute(const JavaVar& attr) {
-    AddVariable(attr, &attrs_);
-    imports_.insert(Java::Enum("DataType", "org.tensorflow"));
+  void AddTypeAttribute(const Variable& attr) {
+    AddVariableiable(attr, &attrs_);
+    imports_.insert(Type::Enum("DataType", "org.tensorflow"));
   }
 
  private:
@@ -82,24 +82,24 @@ class OpTemplate {
     SINGLE_LIST_OUTPUT
   };
   const string op_name_;
-  JavaType op_class_;
-  std::set<JavaType> imports_;
-  std::vector<JavaVar> inputs_;
-  std::vector<JavaVar> attrs_;
-  std::vector<JavaVar> opt_attrs_;
-  std::vector<JavaVar> outputs_;
+  Type op_class_;
+  std::set<Type> imports_;
+  std::vector<Variable> inputs_;
+  std::vector<Variable> attrs_;
+  std::vector<Variable> opt_attrs_;
+  std::vector<Variable> outputs_;
 
-  void AddVariable(const JavaVar& var, std::vector<JavaVar>* list) {
+  void AddVariableiable(const Variable& var, std::vector<Variable>* list) {
     CollectImports(var.type());
     list->push_back(var);
   }
-  void CollectImports(const JavaType& type);
+  void CollectImports(const Type& type);
   void Render(SourceWriter* src_writer);
-  void RenderOptionsClass(JavaClassWriter* op_writer);
-  void RenderFactoryMethod(JavaClassWriter* op_writer);
-  void RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
-      const JavaType& single_type);
-  void RenderConstructor(JavaClassWriter* op_writer);
+  void RenderOptionsClass(ClassWriter* op_writer);
+  void RenderFactoryMethod(ClassWriter* op_writer);
+  void RenderMethods(ClassWriter* op_writer, RenderMode mode,
+      const Type& single_type);
+  void RenderConstructor(ClassWriter* op_writer);
 };
 
 }  // namespace java

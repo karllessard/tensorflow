@@ -23,7 +23,7 @@ namespace tensorflow {
 namespace java {
 
 struct ResolvedType {
-  JavaType dt;
+  Type dt;
   bool is_list = false;
   bool is_inferred = false;  // only true for attribute types
 };
@@ -40,7 +40,7 @@ class OpTypeResolver {
   std::map<string, ResolvedType> resolved_attrs_;
   char next_generic_ = 'T';
 
-  JavaType GetNextGeneric(const AttrValue& allowed_values);
+  Type GetNextGeneric(const AttrValue& allowed_values);
 };
 
 }  // namespace java

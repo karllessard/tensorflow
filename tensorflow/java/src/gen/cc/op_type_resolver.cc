@@ -59,25 +59,25 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_AttrDef& attr,
   }
   if (attr_type == "type") {
     if (type.is_list) {
-      type.dt = Java::Enum("DataType", "org.tensorflow");
+      type.dt = Type::Enum("DataType", "org.tensorflow");
     } else {
       type.dt = GetNextGeneric(attr.allowed_values());
     }
   } else if (attr_type == "string") {
-    type.dt = Java::Class("String");
+    type.dt = Type::Class("String");
   } else if (attr_type == "int") {
-    type.dt = Java::Class("Integer");
+    type.dt = Type::Class("Integer");
   } else if (attr_type == "float") {
-    type.dt = Java::Class("Float");
+    type.dt = Type::Class("Float");
   } else if (attr_type == "bool") {
-    type.dt = Java::Class("Boolean");
+    type.dt = Type::Class("Boolean");
   } else if (attr_type == "shape") {
-    type.dt = Java::Class("Shape", "org.tensorflow");
+    type.dt = Type::Class("Shape", "org.tensorflow");
   } else if (attr_type == "tensor") {
-    type.dt = Java::Class("Tensor", "org.tensorflow").param(Java::Wildcard());
+    type.dt = Type::Class("Tensor", "org.tensorflow").param(Type::Wildcard());
   } else {
     LOG(WARNING) << "Unsupported attribute type \"" << attr_type << "\"";
-    type.dt = type.is_list ? Java::Wildcard() : Java::Class("Object");
+    type.dt = type.is_list ? Type::Wildcard() : Type::Class("Object");
   }
   type.is_inferred = is_inferred;
   std::pair<string, ResolvedType> attr_pair(attr.name(), type);
@@ -91,37 +91,37 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op,
   if (arg.type() != DataType::DT_INVALID) {
     switch (arg.type()) {
       case DataType::DT_BOOL:
-        type.dt = Java::Class("Boolean");
+        type.dt = Type::Class("Boolean");
         break;
       case DataType::DT_STRING:
-        type.dt = Java::Class("String");
+        type.dt = Type::Class("String");
         break;
       case DataType::DT_FLOAT:
-        type.dt = Java::Class("Float");
+        type.dt = Type::Class("Float");
         break;
       case DataType::DT_DOUBLE:
-        type.dt = Java::Class("Double");
+        type.dt = Type::Class("Double");
         break;
       case DataType::DT_UINT8:
-        type.dt = Java::Class("UInt8", "org.tensorflow.types");
+        type.dt = Type::Class("UInt8", "org.tensorflow.types");
         break;
       case DataType::DT_INT32:
-        type.dt = Java::Class("Integer");
+        type.dt = Type::Class("Integer");
         break;
       case DataType::DT_INT64:
-        type.dt = Java::Class("Long");
+        type.dt = Type::Class("Long");
         break;
       case DataType::DT_RESOURCE:
         // TODO (karllessard) Create a Resource utility class that could be
         // used to store a resource and its type (passed in a second argument).
         // For now, we need to force a wildcard and we will unfortunately lose
         // track of the resource type.
-        type.dt = Java::Wildcard();
+        type.dt = Type::Wildcard();
         break;
       default:
         LOG(WARNING) << "Unsupported data type " << arg.type() << " for arg \""
             + arg.name() + "\"";
-        type.dt = Java::Wildcard();
+        type.dt = Type::Wildcard();
         break;
     }
   } else {
@@ -133,7 +133,7 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op,
     for (const auto& attr : op.attr()) {
       if (attr.name() == attr_name) {
         ResolvedType attr_type = TypeOf(attr, is_input);
-        type.dt = type.is_list ? Java::Wildcard() : attr_type.dt;
+        type.dt = type.is_list ? Type::Wildcard() : attr_type.dt;
         break;
       }
     }
@@ -150,12 +150,12 @@ ResolvedType OpTypeResolver::TypeOf(const OpDef_ArgDef& arg, const OpDef& op,
   return type;
 }
 
-JavaType OpTypeResolver::GetNextGeneric(const AttrValue& allowed_values)  {
-  JavaType generic = Java::Generic(string(1, next_generic_));
+Type OpTypeResolver::GetNextGeneric(const AttrValue& allowed_values)  {
+  Type generic = Type::Generic(string(1, next_generic_));
   // if allowed types only include real numbers, enforce that the passed
   // datatype extends java.lang.Number
   if (IsRealNumbers(allowed_values)) {
-    generic.supertype(Java::Class("Number"));
+    generic.supertype(Type::Class("Number"));
   }
   next_generic_ = (next_generic_ == 'Z') ? 'A' : next_generic_ + 1;
   return generic;

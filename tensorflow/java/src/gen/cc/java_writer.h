@@ -48,39 +48,39 @@ inline void endb(SourceWriter* src_writer) {
   src_writer->Indent(-2)->Write("}")->EndOfLine();
 }
 
-/// \brief Basic streamer for outputting Java source code.
+/// \brief Basic streamer for outputting  source code.
 ///
-/// Specialized Java writers extends this class to expose common operators
+/// Specialized  writers extends this class to expose common operators
 /// for writing basic java code.
-class JavaSourceStream {
+class SourceStream {
  public:
-  explicit JavaSourceStream(SourceWriter* src_writer)
+  explicit SourceStream(SourceWriter* src_writer)
       : src_writer_(src_writer) {}
-  virtual ~JavaSourceStream() = default;
+  virtual ~SourceStream() = default;
 
   /// \brief Applies the given manipulator method to this writer.
-  JavaSourceStream& operator<<(void (*f)(SourceWriter*)) {
+  SourceStream& operator<<(void (*f)(SourceWriter*)) {
     f(src_writer_);
     return *this;
   }
   /// \brief Writes a piece of code or text.
-  JavaSourceStream& operator<<(const string& str) {
+  SourceStream& operator<<(const string& str) {
     src_writer_->Write(str);
     return *this;
   }
   /// \brief Writes a piece of code or text.
-  JavaSourceStream& operator<<(const char* str) {
+  SourceStream& operator<<(const char* str) {
     src_writer_->Write(str);
     return *this;
   }
   /// \brief Writes the signature of a type.
-  JavaSourceStream& operator<<(const JavaType& type);
+  SourceStream& operator<<(const Type& type);
 
   /// \brief Writes a piece of code or text as read literally from a file.
   ///
   /// The snippet will be inlined at the current writing position, each line
   /// being indented properly.
-  JavaSourceStream& operator<<(const JavaSnippet& snippet) {
+  SourceStream& operator<<(const Snippet& snippet) {
     src_writer_->Inline(snippet.data());
     return *this;
   }
@@ -90,11 +90,11 @@ class JavaSourceStream {
   SourceWriter* src_writer_;
 };
 
-/// \brief A utility for writing Java class methods.
+/// \brief A utility for writing  class methods.
 ///
-/// This class can only be instantiated from a JavaClassWriter and should be
+/// This class can only be instantiated from a ClassWriter and should be
 /// deleted implicitely by invoking EndOfMethod.
-class JavaMethodWriter : public JavaSourceStream {
+class MethodWriter : public SourceStream {
  public:
   /// \brief Ends the current method.
   ///
@@ -108,39 +108,39 @@ class JavaMethodWriter : public JavaSourceStream {
  private:
   std::set<string> declared_generics_;
 
-  explicit JavaMethodWriter(SourceWriter* src_writer)
-    : JavaSourceStream(src_writer) {}
-  JavaMethodWriter(SourceWriter* src_writer, std::set<string> generics)
-    : JavaSourceStream(src_writer), declared_generics_(generics) {}
-  virtual ~JavaMethodWriter() = default;
+  explicit MethodWriter(SourceWriter* src_writer)
+    : SourceStream(src_writer) {}
+  MethodWriter(SourceWriter* src_writer, std::set<string> generics)
+    : SourceStream(src_writer), declared_generics_(generics) {}
+  virtual ~MethodWriter() = default;
 
-  JavaMethodWriter* Begin(const JavaMethod& method, int modifiers);
+  MethodWriter* Begin(const Method& method, int modifiers);
 
-  friend class JavaClassWriter;
+  friend class ClassWriter;
 };
 
-/// \brief A utility for writing Java classes.
+/// \brief A utility for writing  classes.
 ///
-/// This class can only be instantiated from a JavaWriter or from another
-/// JavaClassWriter when writing an inner class. It must be deleted implicitely
+/// This class can only be instantiated from a Writer or from another
+/// ClassWriter when writing an inner class. It must be deleted implicitely
 /// by invoking EndOfClass.
-class JavaClassWriter : public JavaSourceStream {
+class ClassWriter : public SourceStream {
  public:
   /// \brief Writes a list of variables as fields of this class.
-  JavaClassWriter* WriteFields(const std::vector<JavaVar>& fields,
+  ClassWriter* WriteFields(const std::vector<Variable>& fields,
       int modifiers = 0);
 
   /// \brief Begins a method of this class.
   ///
   /// The returned writer should be used to write the content of the method and
   /// closed properly by calling EndOfMethod().
-  JavaMethodWriter* BeginMethod(const JavaMethod& method, int modifiers = 0);
+  MethodWriter* BeginMethod(const Method& method, int modifiers = 0);
 
   /// \brief Begins a inner class of this class.
   ///
   /// The returned writer should be used to write the content of the inner class
   /// and closed properly by calling EndOfClass().
-  JavaClassWriter* BeginInnerClass(const JavaType& clazz, int modifiers = 0);
+  ClassWriter* BeginInnerClass(const Type& clazz, int modifiers = 0);
 
   /// \brief Ends the current class.
   ///
@@ -154,34 +154,34 @@ class JavaClassWriter : public JavaSourceStream {
  private:
   std::set<string> declared_generics_;
 
-  explicit JavaClassWriter(SourceWriter* src_writer)
-    : JavaSourceStream(src_writer) {}
-  JavaClassWriter(SourceWriter* src_writer, std::set<string> generics)
-    : JavaSourceStream(src_writer), declared_generics_(generics) {}
-  virtual ~JavaClassWriter() = default;
+  explicit ClassWriter(SourceWriter* src_writer)
+    : SourceStream(src_writer) {}
+  ClassWriter(SourceWriter* src_writer, std::set<string> generics)
+    : SourceStream(src_writer), declared_generics_(generics) {}
+  virtual ~ClassWriter() = default;
 
-  JavaClassWriter* Begin(const JavaType& clazz, int modifiers);
+  ClassWriter* Begin(const Type& clazz, int modifiers);
 
-  friend class JavaWriter;
+  friend class Writer;
 };
 
-/// \brief A utility for writing Java source code
+/// \brief A utility for writing  source code
 ///
-/// It wraps a basic SourceWriter with an API specialized for writing Java
+/// It wraps a basic SourceWriter with an API specialized for writing
 /// source code and based on definitions found in java_defs.h. The underlying
 /// SourceWriter is not own by this object and should be released explicitly.
-class JavaWriter : public JavaSourceStream {
+class Writer : public SourceStream {
  public:
-  explicit JavaWriter(SourceWriter* src_writer)
-      : JavaSourceStream(src_writer) {}
-  virtual ~JavaWriter() = default;
+  explicit Writer(SourceWriter* src_writer)
+      : SourceStream(src_writer) {}
+  virtual ~Writer() = default;
 
   /// \brief Begins the main class.
   ///
   /// The returned writer should be used to write the content of the class and
   /// closed properly by calling EndOfClass().
-  JavaClassWriter* BeginClass(const JavaType& clazz,
-      const std::set<JavaType>& imports, int modifiers = 0);
+  ClassWriter* BeginClass(const Type& clazz,
+      const std::set<Type>& imports, int modifiers = 0);
 };
 
 }  // namespace java

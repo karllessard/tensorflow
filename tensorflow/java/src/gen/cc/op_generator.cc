@@ -45,7 +45,7 @@ string SnakeToCamelCase(const string& str, bool upper = false) {
   return result;
 }
 
-void ParseDescription(const string& descr, JavaDoc* doc) {
+void ParseDescription(const string& descr, Doc* doc) {
   std::stringstream jdoc_descr;
   bool newline = false;
   for (std::string::const_iterator c = descr.cbegin(); c != descr.cend(); ++c) {
@@ -74,7 +74,7 @@ void ParseDescription(const string& descr, JavaDoc* doc) {
   doc->descr(jdoc_descr.str());
 }
 
-inline bool IsParamOf(const JavaType& type, const JavaType& clazz) {
+inline bool IsParamOf(const Type& type, const Type& clazz) {
   return std::find(clazz.params().begin(), clazz.params().end(), type)
       != clazz.params().end();
 }
@@ -92,11 +92,11 @@ OpGenerator::~OpGenerator() {}
 Status OpGenerator::Run(const OpList& ops, const string& lib_name,
     const string& base_package, const string& output_dir) {
   const string op_group = SnakeToCamelCase(lib_name);
-  LOG(INFO) << "Generating Java wrappers for '" << lib_name << "' operations";
+  LOG(INFO) << "Generating  wrappers for '" << lib_name << "' operations";
   for (const auto& op : ops.op()) {
     if (!IsInternal(op)  // skip internal ops
         && GenerateOp(op, op_group, base_package, output_dir) != Status::OK()) {
-      LOG(ERROR) << "Fail to generate Java wrapper for operation \""
+      LOG(ERROR) << "Fail to generate  wrapper for operation \""
           << op.name() << "\"";
     }
   }
@@ -108,32 +108,32 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
   OpTypeResolver type_resolver;
   OpTemplate tmpl(op.name());
   const string package = base_package + '.' + str_util::Lowercase(op_group);
-  JavaType op_class = Java::Class(op.name(), package);
-  ParseDescription(op.description(), op_class.doc_ptr());
+  Type op_class = Type::Class(op.name(), package);
+  ParseDescription(op.description(), op_class.mutable_doc());
 
   for (const auto& input : op.input_arg()) {
     const string input_name = SnakeToCamelCase(input.name());
     const ResolvedType type = type_resolver.TypeOf(input, op, true);
-    JavaType input_type = Java::Interface("Operand", "org.tensorflow")
+    Type input_type = Type::Interface("Operand", "org.tensorflow")
         .param(type.dt);
-    JavaVar input_var = Java::Var(input_name,
-        type.is_list ? Java::IterableOf(input_type) : input_type);
-    ParseDescription(input.description(), input_var.doc_ptr());
+    Variable input_var = Variable::Field(input_name,
+        type.is_list ? Type::IterableOf(input_type) : input_type);
+    ParseDescription(input.description(), input_var.mutable_doc());
     tmpl.AddInput(input_var);
   }
   for (const auto& attr : op.attr()) {
     ResolvedType type = type_resolver.TypeOf(attr);
     if (!type.is_inferred) {
       const string attr_name = SnakeToCamelCase(attr.name());
-      if (Java::IsGeneric(type.dt) && !type.is_list) {
-        JavaVar attr_var = Java::Var(attr.name(),
-            Java::Class("Class").param(type.dt));
-        ParseDescription(attr.description(), attr_var.doc_ptr());
+      if (::IsGeneric(type.dt) && !type.is_list) {
+        Var attr_var = ::Var(attr.name(),
+            ::Class("Class").param(type.dt));
+        ParseDescription(attr.description(), attr_var.mutable_doc());
         tmpl.AddTypeAttribute(attr_var);
       } else {
-        JavaVar attr_var = Java::Var(attr_name,
-          type.is_list ? Java::ListOf(type.dt) : type.dt);
-        ParseDescription(attr.description(), attr_var.doc_ptr());
+        Var attr_var = ::Var(attr_name,
+          type.is_list ? ::ListOf(type.dt) : type.dt);
+        ParseDescription(attr.description(), attr_var.mutable_doc());
         tmpl.AddAttribute(attr_var, attr.has_default_value());
       }
     }
@@ -141,13 +141,13 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
   for (const auto& output : op.output_arg()) {
     const string output_name = SnakeToCamelCase(output.name());
     const ResolvedType type = type_resolver.TypeOf(output, op, false);
-    JavaType output_type = Java::Class("Output", "org.tensorflow")
+    Type output_type = ::Class("Output", "org.tensorflow")
         .param(type.dt);
-    JavaVar output_var = Java::Var(output_name,
-        type.is_list ? Java::ListOf(output_type) : output_type);
-    ParseDescription(output.description(), output_var.doc_ptr());
+    Var output_var = ::Var(output_name,
+        type.is_list ? ::ListOf(output_type) : output_type);
+    ParseDescription(output.description(), output_var.mutable_doc());
     tmpl.AddOutput(output_var);
-    if (Java::IsGeneric(type.dt) && !IsParamOf(type.dt, op_class)) {
+    if (::IsGeneric(type.dt) && !IsParamOf(type.dt, op_class)) {
       op_class.param(type.dt);
     }
   }

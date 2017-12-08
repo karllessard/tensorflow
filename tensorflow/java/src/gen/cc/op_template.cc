@@ -26,30 +26,30 @@ namespace tensorflow {
 namespace java {
 namespace {
 
-inline const JavaType& FindOutputTensorType(const JavaType& output_type) {
-  if (Java::IsCollection(output_type)) {
+inline const Type& FindOutputTensorType(const Type& output_type) {
+  if (output_type.IsCollection()) {
     return output_type.params().front().params().front();
   }
   return output_type.params().front();
 }
 
-const std::map<string, JavaType> kPrimitiveAttrTypes = {
-    { "Boolean", Java::Type("boolean") },
-    { "Byte", Java::Type("byte") },
-    { "Character", Java::Type("byte") },
-    { "Float", Java::Type("float") },
-    { "Integer", Java::Type("long") },
-    { "Long", Java::Type("long") },
-    { "Short", Java::Type("long") },
-    { "Double", Java::Type("float") },
+const std::map<string, Type> kPrimitiveAttrTypes = {
+    { "Boolean", Type::Primitive("boolean") },
+    { "Byte", Type::Primitive("byte") },
+    { "Character", Type::Primitive("byte") },
+    { "Float", Type::Primitive("float") },
+    { "Integer", Type::Primitive("long") },
+    { "Long", Type::Primitive("long") },
+    { "Short", Type::Primitive("long") },
+    { "Double", Type::Primitive("float") },
 };
 
-void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
+void WriteSetAttrDirective(const Variable& attr, MethodWriter* writer,
     bool optional) {
   string var_name = optional ? "opts." + attr.name() : attr.name();
-  if (Java::IsCollection(attr.type())) {
-    const JavaType& type = attr.type().params().front();
-    std::map<string, JavaType>::const_iterator it =
+  if (attr.type().IsCollection()) {
+    const Type& type = attr.type().params().front();
+    std::map<string, Type>::const_iterator it =
       kPrimitiveAttrTypes.find(type.name());
     if (it != kPrimitiveAttrTypes.end()) {
       string array_name = attr.name() + "Array";
@@ -67,9 +67,9 @@ void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
           << endl;
     }
   } else {
-    JavaType type = attr.type();
+    Type type = attr.type();
     *writer << "opBuilder.setAttr(\"" << attr.name() << "\", ";
-    if (type == Java::Class("Class")) {
+    if (type == Type::Class("Class")) {
       *writer << "DataType.fromClass(" << attr.name() << "));" << endl;
     } else {
       *writer << var_name << ");" << endl;
@@ -81,28 +81,28 @@ void WriteSetAttrDirective(const JavaVar& attr, JavaMethodWriter* writer,
 
 OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
   imports_.insert({
-    Java::Class("Operation", "org.tensorflow"),
-    Java::Class("OperationBuilder", "org.tensorflow"),
-    Java::Class("Scope", "org.tensorflow.op"),
+    Type::Class("Operation", "org.tensorflow"),
+    Type::Class("OperationBuilder", "org.tensorflow"),
+    Type::Class("Scope", "org.tensorflow.op"),
   });
 }
 
-void OpTemplate::AddInput(const JavaVar& input) {
-  AddVariable(input, &inputs_);
-  if (Java::IsCollection(input.type())) {
-    imports_.insert(Java::Class("Operands", "org.tensorflow.op"));
+void OpTemplate::AddInput(const Variable& input) {
+  AddVariableiable(input, &inputs_);
+  if (input.type().IsCollection()) {
+    imports_.insert(Type::Class("Operands", "org.tensorflow.op"));
   }
 }
 
-void OpTemplate::AddOutput(const JavaVar& output) {
-  AddVariable(output, &outputs_);
-  if (Java::IsCollection(output.type())) {
-    imports_.insert(Java::Class("Arrays", "java.util"));
+void OpTemplate::AddOutput(const Variable& output) {
+  AddVariableiable(output, &outputs_);
+  if (output.type().IsCollection()) {
+    imports_.insert(Type::Class("Arrays", "java.util"));
   }
 }
 
-void OpTemplate::CollectImports(const JavaType& type) {
-  auto import_scanner = [this](const JavaType* type) {
+void OpTemplate::CollectImports(const Type& type) {
+  auto import_scanner = [this](const Type* type) {
     if (!type->package().empty()) {
       this->imports_.insert(*type);
     }
@@ -133,37 +133,37 @@ void OpTemplate::RenderToBuffer(string* buffer) {
 
 void OpTemplate::Render(SourceWriter* src_writer) {
   // Complete the effective op class to render by selecting supertypes
-  JavaType op_class(op_class_);
-  op_class.supertype(Java::Class("PrimitiveOp", "org.tensorflow.op"));
-  JavaType single_type;
+  Type op_class(op_class_);
+  op_class.supertype(Type::Class("PrimitiveOp", "org.tensorflow.op"));
+  Type single_type;
 
   RenderMode mode = DEFAULT;
   if (outputs_.size() == 1) {
-      const JavaVar& output = outputs_.front();
+      const Variable& output = outputs_.front();
       single_type = FindOutputTensorType(output.type());
-      if (Java::IsWildcard(single_type)) {
-        single_type = Java::Class("Object");
+      if (single_type.IsWildcard()) {
+        single_type = Type::Class("Object");
       }
-      JavaType operand = Java::Interface("Operand", "org.tensorflow");
+      Type operand = Type::Interface("Operand", "org.tensorflow");
       operand.param(single_type);
 
-      if (Java::IsCollection(output.type())) {
+      if (output.type().IsCollection()) {
         mode = SINGLE_LIST_OUTPUT;
-        op_class.supertype(Java::IterableOf(operand));
-        imports_.insert(Java::Interface("Iterator", "java.util"));
+        op_class.supertype(Type::IterableOf(operand));
+        imports_.insert(Type::Interface("Iterator", "java.util"));
 
       } else {
         mode = SINGLE_OUTPUT;
         op_class.supertype(operand);
-        imports_.insert(Java::Class("Output", "org.tensorflow"));
+        imports_.insert(Type::Class("Output", "org.tensorflow"));
       }
   }
   CollectImports(op_class);
 
   // Render the op class to the selected target
-  JavaWriter writer(src_writer);
-  writer << JavaSnippet(io::JoinPath(kGenResourcePath, "licence.snippet.java"));
-  JavaClassWriter* op_writer =
+  Writer writer(src_writer);
+  writer << Snippet(io::JoinPath(kGenResourcePath, "licence.snippet.java"));
+  ClassWriter* op_writer =
       writer.BeginClass(op_class, imports_, PUBLIC|FINAL);
   if (!opt_attrs_.empty()) {
     RenderOptionsClass(op_writer);
@@ -175,20 +175,20 @@ void OpTemplate::Render(SourceWriter* src_writer) {
   op_writer->EndClass();
 }
 
-void OpTemplate::RenderOptionsClass(JavaClassWriter* op_writer) {
-    JavaType opt_class = Java::Class("Options");
-    opt_class.doc_ptr()
+void OpTemplate::RenderOptionsClass(ClassWriter* op_writer) {
+    Type opt_class = Type::Class("Options");
+    opt_class.mutable_doc()
         ->descr("Class holding optional attributes of this operation");
 
-    JavaClassWriter* opt_writer =
+    ClassWriter* opt_writer =
         op_writer->BeginInnerClass(opt_class, PUBLIC|STATIC);
 
-    std::vector<JavaVar>::const_iterator var;
+    std::vector<Variable>::const_iterator var;
     for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
-      JavaMethod setter = Java::Method(var->name(), opt_class);
+      Method setter = Method::Member(var->name(), opt_class);
       setter.arg(*var);
 
-      JavaMethodWriter* set_writer = opt_writer->BeginMethod(setter, PUBLIC);
+      MethodWriter* set_writer = opt_writer->BeginMethod(setter, PUBLIC);
       *set_writer << "this." << var->name() << " = " << var->name()
           << ";" << endl
           << "return this;" << endl;
@@ -196,34 +196,35 @@ void OpTemplate::RenderOptionsClass(JavaClassWriter* op_writer) {
     }
     opt_writer->WriteFields(opt_attrs_, PRIVATE);
 
-    JavaMethod opt_ctor = Java::ConstructorFor(opt_class);
+    Method opt_ctor = Method::ConstructorFor(opt_class);
     opt_writer->BeginMethod(opt_ctor, PRIVATE)->EndMethod();
     opt_writer->EndClass();
 }
 
-void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer) {
-  JavaVar scope = Java::Var("scope", Java::Class("Scope", "org.tensorflow.op"));
-  scope.doc_ptr()->descr("Current graph scope");
+void OpTemplate::RenderFactoryMethod(ClassWriter* op_writer) {
+  Variable scope =
+      Variable::Arg("scope", Type::Class("Scope", "org.tensorflow.op"));
+  scope.mutable_doc()->descr("Current graph scope");
 
-  JavaMethod factory = Java::Method("create", op_class_);
-  factory.doc_ptr()->descr("Factory method to create a class to wrap a new "
+  Method factory = Method::Member("create", op_class_);
+  factory.mutable_doc()->descr("Factory method to create a class to wrap a new "
           + op_name_ + " operation to the graph.");
-  factory.doc_ptr()->value("a new instance of " + op_class_.name());
+  factory.mutable_doc()->value("a new instance of " + op_class_.name());
   factory.arg(scope);
   factory.args(inputs_);
   factory.args(attrs_);
   if (!opt_attrs_.empty()) {
-    JavaVar options = Java::PeriodicVar("options", Java::Class("Options"));
-    options.doc_ptr()->descr("an object holding optional attributes values");
+    Variable options = Variable::VarArg("options", Type::Class("Options"));
+    options.mutable_doc()->descr("an object holding optional attributes values");
     factory.arg(options);
   }
-  JavaMethodWriter* fct_writer = op_writer->BeginMethod(factory, PUBLIC|STATIC);
+  MethodWriter* fct_writer = op_writer->BeginMethod(factory, PUBLIC|STATIC);
   *fct_writer << "OperationBuilder opBuilder = scope.graph().opBuilder(\""
       << op_name_ << "\", scope.makeOpName(\"" << op_name_ << "\"));"
       << endl;
-  std::vector<JavaVar>::const_iterator var;
+  std::vector<Variable>::const_iterator var;
   for (var = inputs_.begin(); var != inputs_.end(); ++var) {
-    if (Java::IsCollection(var->type())) {
+    if (var->type().IsCollection()) {
       *fct_writer << "opBuilder.addInputList(Operands.asOutputs("
           << var->name() << "));" << endl;
     } else {
@@ -248,41 +249,41 @@ void OpTemplate::RenderFactoryMethod(JavaClassWriter* op_writer) {
   fct_writer->EndMethod();
 }
 
-void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
-    const JavaType& single_output_type) {
-  std::vector<JavaVar>::const_iterator var;
+void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
+    const Type& single_output_type) {
+  std::vector<Variable>::const_iterator var;
 
   // Options setters
   for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
-    JavaMethod setter = Java::Method(var->name(), Java::Class("Options"));
+    Method setter = Method::Member(var->name(), Type::Class("Options"));
     setter.arg(*var);
-    JavaMethodWriter* set_writer = op_writer->BeginMethod(setter, PUBLIC|STATIC);
+    MethodWriter* set_writer = op_writer->BeginMethod(setter, PUBLIC|STATIC);
     *set_writer << "return new Options()." << var->name() << "("
             << var->name() << ");" << endl;
     set_writer->EndMethod();
   }
   // Output getters
   for (var = outputs_.begin(); var != outputs_.end(); ++var) {
-    JavaMethod getter = Java::Method(var->name(), var->type());
+    Method getter = Method::Member(var->name(), var->type());
     getter.doc(var->doc());
-    JavaMethodWriter* get_writer = op_writer->BeginMethod(getter, PUBLIC);
+    MethodWriter* get_writer = op_writer->BeginMethod(getter, PUBLIC);
     *get_writer << "return " << var->name() << ";" << endl;
     get_writer->EndMethod();
   }
   // Interface methods
   if (mode == SINGLE_OUTPUT) {
-    JavaType return_type = Java::Class("Output", "org.tensorflow")
+    Type return_type = Type::Class("Output", "org.tensorflow")
         .param(single_output_type);
-    JavaMethod as_output = Java::Method("asOutput", return_type)
-        .annotation(Java::Annot("Override"));
+    Method as_output = Method::Member("asOutput", return_type)
+        .annotation(Annotation::OfType("Override"));
     // cast the output if not of the same tensor type
-    JavaVar output = outputs_.front();
+    Variable output = outputs_.front();
     bool cast = single_output_type != FindOutputTensorType(output.type());
     if (cast) {
       as_output.annotation(
-          Java::Annot("SuppressWarnings").attrs("\"unchecked\""));
+          Annotation::OfType("SuppressWarnings").attrs("\"unchecked\""));
     }
-    JavaMethodWriter* out_writer = op_writer->BeginMethod(as_output, PUBLIC);
+    MethodWriter* out_writer = op_writer->BeginMethod(as_output, PUBLIC);
     *out_writer << "return ";
     if (cast) {
       *out_writer << "(" << return_type << ") ";
@@ -291,45 +292,45 @@ void OpTemplate::RenderMethods(JavaClassWriter* op_writer, RenderMode mode,
     out_writer->EndMethod();
 
   } else if (mode == SINGLE_LIST_OUTPUT) {
-    JavaType operand = Java::Interface("Operand", "org.tensorflow");
+    Type operand = Type::Interface("Operand", "org.tensorflow");
     operand.param(single_output_type);
-    JavaType return_type = Java::Interface("Iterator", "java.util");
+    Type return_type = Type::Interface("Iterator", "java.util");
     return_type.param(operand);
-    JavaMethod iterator = Java::Method("iterator", return_type)
-        .annotation(Java::Annot("Override"))
-        .annotation(Java::Annot("SuppressWarnings")
+    Method iterator = Method::Member("iterator", return_type)
+        .annotation(Annotation::OfType("Override"))
+        .annotation(Annotation::OfType("SuppressWarnings")
             .attrs("{\"rawtypes\", \"unchecked\"}"));
 
     // cast the output list using a raw List
-    JavaMethodWriter* it_writer = op_writer->BeginMethod(iterator, PUBLIC);
+    MethodWriter* it_writer = op_writer->BeginMethod(iterator, PUBLIC);
     *it_writer << "return (" << return_type.name() + ") "
             << outputs_.front().name() << ".iterator();" << endl;
     it_writer->EndMethod();
   }
 }
 
-void OpTemplate::RenderConstructor(JavaClassWriter* op_writer) {
-  JavaVar operation = Java::Var("operation",
-      Java::Class("Operation", "org.tensorflow"));
+void OpTemplate::RenderConstructor(ClassWriter* op_writer) {
+  Variable operation = Variable::Arg("operation",
+      Type::Class("Operation", "org.tensorflow"));
 
-  JavaMethod constructor = Java::ConstructorFor(op_class_).arg(operation);
+  Method constructor = Method::ConstructorFor(op_class_).arg(operation);
   constructor.annotation(
-      Java::Annot("SuppressWarnings").attrs("\"unchecked\""));  // FIXME not always required!
+      Annotation::OfType("SuppressWarnings").attrs("\"unchecked\""));  // FIXME not always required!
 
-  JavaMethodWriter* ctr_writer = op_writer->BeginMethod(constructor, PRIVATE);
+  MethodWriter* ctr_writer = op_writer->BeginMethod(constructor, PRIVATE);
   *ctr_writer << "super(operation);" << endl
       << "int outputIdx = 0;" << endl;
 
-  std::vector<JavaVar>::const_iterator var;
+  std::vector<Variable>::const_iterator var;
   for (var = outputs_.begin(); var != outputs_.end(); ++var) {
-    if (Java::IsCollection(var->type())) {
+    if (var->type().IsCollection()) {
       string var_length_name = var->name() + "Length";
       *ctr_writer << "int " << var_length_name
           << " = operation.outputListLength(\"" << var->name() << "\");"
           << endl
           << var->name() << " = Arrays.asList(";
-      const JavaType& tensor_type = FindOutputTensorType(var->type());
-      if (!Java::IsWildcard(tensor_type)) {
+      const Type& tensor_type = FindOutputTensorType(var->type());
+      if (!tensor_type.IsWildcard()) {
         *ctr_writer << "(" << var->type().params().front() << "[])";
       }
       *ctr_writer << "operation.outputList(outputIdx, " << var_length_name

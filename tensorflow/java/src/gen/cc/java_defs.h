@@ -222,25 +222,28 @@ class Snippet {
 // Templates implementation
 
 template <typename TypeScanner>
-void ScanTypes(const Type& type_root, TypeScanner* scanner) {
+void ScanForTypes(const Type& type_root, TypeScanner* scanner) {
   (*scanner)(type_root);
-  ScanTypes(type_root.params(), scanner);
-  ScanTypes(type_root.annotations(), scanner);
-  ScanTypes(type_root.supertypes(), scanner);
+  ScanForTypes(type_root.params(), scanner);
+  ScanForTypes(type_root.annotations(), scanner);
+  ScanForTypes(type_root.supertypes(), scanner);
 }
 
 template <typename TypeContainer, typename TypeScanner>
-void ScanTypes(const TypeContainer& types, TypeScanner* scanner) {
+void ScanForTypes(const TypeContainer& types, TypeScanner* scanner) {
   for (auto it = types.cbegin(); it != types.cend(); ++it) {
     it->Scan(scanner);
   }
 }
 
-template <typename Container, typename TypeScanner>
-void ScanArgTypes(const Method& method, TypeScanner* scanner) {
+template <typename TypeScanner>
+void ScanForTypes(const Method& method, TypeScanner* scanner) {
+  if (!method.constructor()) {
+    ScanForTypes(method.ret_type(), scanner);
+  }
   for (std::vector<Variable>::const_iterator arg = method.args().cbegin();
       arg != method.args().cend(); ++arg) {
-    ScanType(arg->type(), scanner);
+    ScanForTypes(arg->type(), scanner);
   }
 }
 

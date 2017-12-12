@@ -105,8 +105,6 @@ class Type {
   bool IsWildcard() const {
     return kind_ == GENERIC && name_.empty();
   }
-  /// Scans this type and any of its parameter types
-  template <class TypeScanner> void Scan(TypeScanner* scanner) const;
 
  protected:
   Type(Kind kind, const string& name, const string& package)
@@ -177,11 +175,13 @@ class Method {
   static Method ConstructorFor(const Type& clazz) {
     return Method(clazz.name(), clazz, true);
   }
-  const string& name() const { return name_; }
-  const Type& return_type() const { return return_type_; }
   bool constructor() const { return constructor_; }
+  const string& name() const { return name_; }
+  const Type& ret_type() const { return ret_type_; }
   const string& descr() const { return descr_; }
   Method& descr(const string& descr) { descr_ = descr; return *this; }
+  const string& ret_descr() const { return ret_descr_; }
+  Method& ret_descr(const string& descr) { ret_descr_ = descr; return *this; }
   const std::vector<Variable>& args() const { return args_; }
   Method& args(const std::vector<Variable>& args) {
     args_.insert(args_.cend(), args.cbegin(), args.cend());
@@ -193,20 +193,18 @@ class Method {
     annotations_.push_back(annotation);
     return *this;
   }
-  /// Scans all types found in the signature of this method.
-  template <class TypeScanner>
-  void ScanTypes(TypeScanner* scanner, bool args_only) const;
 
  private:
-  string name_;
-  Type return_type_;
   bool constructor_;
+  string name_;
   string descr_;
+  Type ret_type_;
+  string ret_descr_;
   std::vector<Variable> args_;
   std::vector<Annotation> annotations_;
 
-  Method(const string& name, const Type& return_type, bool constructor)
-    : name_(name), return_type_(return_type), constructor_(constructor) {}
+  Method(const string& name, const Type& ret_type, bool constructor)
+    : name_(name), ret_type_(ret_type), constructor_(constructor) {}
 };
 
 /// \brief A piece of code to read from a file.
@@ -223,31 +221,26 @@ class Snippet {
 
 // Templates implementation
 
-template <class TypeScanner>
-void Type::Scan(TypeScanner* scanner) const {
-  (*scanner)(this);
-  for (std::vector<Type>::const_iterator it = params_.cbegin();
-      it != params_.cend(); ++it) {
-    it->Scan(scanner);
-  }
-  for (std::vector<Annotation>::const_iterator it = annotations_.cbegin();
-      it != annotations_.cend(); ++it) {
-    it->Scan(scanner);
-  }
-  for (std::deque<Type>::const_iterator it = supertypes_.cbegin();
-      it != supertypes_.cend(); ++it) {
+template <typename TypeScanner>
+void ScanTypes(const Type& type_root, TypeScanner* scanner) {
+  (*scanner)(type_root);
+  ScanTypes(type_root.params(), scanner);
+  ScanTypes(type_root.annotations(), scanner);
+  ScanTypes(type_root.supertypes(), scanner);
+}
+
+template <typename TypeContainer, typename TypeScanner>
+void ScanTypes(const TypeContainer& types, TypeScanner* scanner) {
+  for (auto it = types.cbegin(); it != types.cend(); ++it) {
     it->Scan(scanner);
   }
 }
 
-template <class TypeScanner>
-void Method::ScanTypes(TypeScanner* scanner, bool args_only) const {
-  if (!args_only && !constructor()) {
-    return_type_.Scan(scanner);
-  }
-  for (std::vector<Variable>::const_iterator arg = args_.cbegin();
-      arg != args_.cend(); ++arg) {
-    arg->type().Scan(scanner);
+template <typename Container, typename TypeScanner>
+void ScanArgTypes(const Method& method, TypeScanner* scanner) {
+  for (std::vector<Variable>::const_iterator arg = method.args().cbegin();
+      arg != method.args().cend(); ++arg) {
+    ScanType(arg->type(), scanner);
   }
 }
 

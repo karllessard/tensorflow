@@ -112,20 +112,19 @@ void WriteAnnotationations(const std::vector<Annotation>& annotations,
   }
 }
 
-void WriteDoc(const Doc& doc, const std::vector<Variable>* params,
-    SourceWriter* src_writer) {
-  if (doc.descr().empty() && doc.value().empty()
+void WriteDoc(const string& descr, const string* ret_descr,
+    const std::vector<Variable>* params, SourceWriter* src_writer) {
+  if (descr.empty() && (ret_descr == nullptr || ret_descr->empty())
       && (params == nullptr || params->empty())) {
     return;  // no doc to write
   }
   bool line_break = false;
   src_writer->Write("/**")->EndOfLine()->LinePrefix(" * ");
-  if (!doc.descr().empty()) {
-    src_writer->Inline(doc.descr())
-        ->EndOfLine();
+  if (!descr.empty()) {
+    src_writer->Inline(descr)->EndOfLine();
     line_break = true;
   }
-  if (params != NULL && !params->empty()) {
+  if (params != nullptr && !params->empty()) {
     if (line_break) {
       src_writer->EndOfLine();
       line_break = false;
@@ -133,17 +132,17 @@ void WriteDoc(const Doc& doc, const std::vector<Variable>* params,
     std::vector<Variable>::const_iterator it;
     for (it = params->begin(); it != params->end(); ++it) {
       src_writer->Write("@param ")->Write(it->name());
-      if (!it->doc().descr().empty()) {
-        src_writer->Write(" ")->Inline(it->doc().descr());
+      if (!it->descr().empty()) {
+        src_writer->Write(" ")->Inline(it->descr());
       }
       src_writer->EndOfLine();
     }
   }
-  if (!doc.value().empty()) {
+  if (ret_descr != nullptr && !ret_descr->empty()) {
     if (line_break) {
       src_writer->EndOfLine();
     }
-    src_writer->Inline("@return " + doc.value())->EndOfLine();
+    src_writer->Write("@return ")->Inline(*ret_descr)->EndOfLine();
   }
   src_writer->RemoveLinePrefix()->Write(" **/")->EndOfLine();
 }
@@ -158,7 +157,7 @@ SourceStream& SourceStream::operator<<(const Type& type) {
 ClassWriter* ClassWriter::Begin(const Type& clazz, int modifiers) {
   GenericTypeScanner generics(&declared_generics_);
   clazz.Scan(&generics);
-  WriteDoc(clazz.doc(), nullptr, src_writer_);
+  WriteDoc(clazz.descr(), nullptr, nullptr, src_writer_);
   if (!clazz.annotations().empty()) {
     WriteAnnotationations(clazz.annotations(), src_writer_);
   }
@@ -196,7 +195,9 @@ ClassWriter* ClassWriter::WriteFields(
 MethodWriter* ClassWriter::BeginMethod(const Method& method,
     int modifiers) {
   *this << endl;
-  WriteDoc(method.doc(), &method.args(), src_writer_);
+  const string* ret_descr =
+      method.constructor() ? nullptr : &method.return_type().descr();
+  WriteDoc(method.descr(), ret_descr, &method.args(), src_writer_);
   if (!method.annotations().empty()) {
     WriteAnnotationations(method.annotations(), src_writer_);
   }

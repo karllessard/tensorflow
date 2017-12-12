@@ -177,15 +177,14 @@ void OpTemplate::Render(SourceWriter* src_writer) {
 
 void OpTemplate::RenderOptionsClass(ClassWriter* op_writer) {
     Type opt_class = Type::Class("Options");
-    opt_class.mutable_doc()
-        ->descr("Class holding optional attributes of this operation");
+    opt_class.descr("Class holding optional attributes of this operation");
 
     ClassWriter* opt_writer =
         op_writer->BeginInnerClass(opt_class, PUBLIC|STATIC);
 
     std::vector<Variable>::const_iterator var;
     for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
-      Method setter = Method::Member(var->name(), opt_class);
+      Method setter = Method::Of(var->name(), opt_class);
       setter.arg(*var);
 
       MethodWriter* set_writer = opt_writer->BeginMethod(setter, PUBLIC);
@@ -203,19 +202,19 @@ void OpTemplate::RenderOptionsClass(ClassWriter* op_writer) {
 
 void OpTemplate::RenderFactoryMethod(ClassWriter* op_writer) {
   Variable scope =
-      Variable::Arg("scope", Type::Class("Scope", "org.tensorflow.op"));
-  scope.mutable_doc()->descr("Current graph scope");
+      Variable::Of("scope", Type::Class("Scope", "org.tensorflow.op"));
+  scope.descr("Current graph scope");
 
-  Method factory = Method::Member("create", op_class_);
-  factory.mutable_doc()->descr("Factory method to create a class to wrap a new "
+  Method factory = Method::Of("create", op_class_);
+  factory.descr("Factory method to create a class to wrap a new "
           + op_name_ + " operation to the graph.");
-  factory.mutable_doc()->value("a new instance of " + op_class_.name());
+  factory.return_type().descr("a new instance of " + op_class_.name());
   factory.arg(scope);
   factory.args(inputs_);
   factory.args(attrs_);
   if (!opt_attrs_.empty()) {
     Variable options = Variable::VarArg("options", Type::Class("Options"));
-    options.mutable_doc()->descr("an object holding optional attributes values");
+    options.descr("an object holding optional attributes values");
     factory.arg(options);
   }
   MethodWriter* fct_writer = op_writer->BeginMethod(factory, PUBLIC|STATIC);
@@ -255,7 +254,7 @@ void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
 
   // Options setters
   for (var = opt_attrs_.begin(); var != opt_attrs_.end(); ++var) {
-    Method setter = Method::Member(var->name(), Type::Class("Options"));
+    Method setter = Method::Of(var->name(), Type::Class("Options"));
     setter.arg(*var);
     MethodWriter* set_writer = op_writer->BeginMethod(setter, PUBLIC|STATIC);
     *set_writer << "return new Options()." << var->name() << "("
@@ -264,8 +263,8 @@ void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
   }
   // Output getters
   for (var = outputs_.begin(); var != outputs_.end(); ++var) {
-    Method getter = Method::Member(var->name(), var->type());
-    getter.doc(var->doc());
+    Method getter = Method::Of(var->name(), var->type());
+    getter.descr(var->descr());
     MethodWriter* get_writer = op_writer->BeginMethod(getter, PUBLIC);
     *get_writer << "return " << var->name() << ";" << endl;
     get_writer->EndMethod();
@@ -274,14 +273,14 @@ void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
   if (mode == SINGLE_OUTPUT) {
     Type return_type = Type::Class("Output", "org.tensorflow")
         .param(single_output_type);
-    Method as_output = Method::Member("asOutput", return_type)
-        .annotation(Annotation::OfType("Override"));
+    Method as_output = Method::Of("asOutput", return_type)
+        .annotation(Annotation::Of("Override"));
     // cast the output if not of the same tensor type
     Variable output = outputs_.front();
     bool cast = single_output_type != FindOutputTensorType(output.type());
     if (cast) {
       as_output.annotation(
-          Annotation::OfType("SuppressWarnings").attrs("\"unchecked\""));
+          Annotation::Of("SuppressWarnings").attrs("\"unchecked\""));
     }
     MethodWriter* out_writer = op_writer->BeginMethod(as_output, PUBLIC);
     *out_writer << "return ";
@@ -296,9 +295,9 @@ void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
     operand.param(single_output_type);
     Type return_type = Type::Interface("Iterator", "java.util");
     return_type.param(operand);
-    Method iterator = Method::Member("iterator", return_type)
-        .annotation(Annotation::OfType("Override"))
-        .annotation(Annotation::OfType("SuppressWarnings")
+    Method iterator = Method::Of("iterator", return_type)
+        .annotation(Annotation::Of("Override"))
+        .annotation(Annotation::Of("SuppressWarnings")
             .attrs("{\"rawtypes\", \"unchecked\"}"));
 
     // cast the output list using a raw List
@@ -310,12 +309,12 @@ void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
 }
 
 void OpTemplate::RenderConstructor(ClassWriter* op_writer) {
-  Variable operation = Variable::Arg("operation",
+  Variable operation = Variable::Of("operation",
       Type::Class("Operation", "org.tensorflow"));
 
   Method constructor = Method::ConstructorFor(op_class_).arg(operation);
   constructor.annotation(
-      Annotation::OfType("SuppressWarnings").attrs("\"unchecked\""));  // FIXME not always required!
+      Annotation::Of("SuppressWarnings").attrs("\"unchecked\""));  // FIXME not always required!
 
   MethodWriter* ctr_writer = op_writer->BeginMethod(constructor, PRIVATE);
   *ctr_writer << "super(operation);" << endl

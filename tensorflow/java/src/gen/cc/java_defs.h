@@ -34,35 +34,6 @@ enum Modifier {
   FINAL     = (1 << 4),
 };
 
-/// \brief A definition of a Java documentation block
-///
-/// Any vector of parameters (@param) that should be included in this block
-/// can be provided separately (e.g. a vector of documented variables, see
-/// JavaVariable).
-class Doc {
- public:
-  const string& descr() const { return descr_; }
-  Doc& descr(const string& txt) { descr_ = txt; return *this; }
-  const string& value() const { return value_; }
-  Doc& value(const string& value) { value_ = value; return *this; }
-
- private:
-  string descr_;
-  string value_;
-};
-
-/// \brief A piece of code to read from a file.
-class Snippet {
- public:
-  explicit Snippet(const string& fname, Env* env = Env::Default()) {
-    TF_CHECK_OK(ReadFileToString(env, fname, &data_));
-  }
-  const string& data() const { return data_; }
-
- private:
-  string data_;
-};
-
 class Annotation;
 
 /// \brief A definition of any kind of Java type (classes, interfaces...)
@@ -105,9 +76,8 @@ class Type {
   const Kind& kind() const { return kind_; }
   const string& name() const { return name_; }
   const string& package() const { return package_; }
-  const Doc& doc() const { return doc_; }
-  Doc* mutable_doc() { return &doc_; }
-  Type& doc(const Doc& doc) { doc_ = doc; return *this; }
+  const string& descr() const { return descr_; }
+  Type& descr(const string& descr) { descr_ = descr; return *this; }
   const std::vector<Type>& params() const { return params_; }
   Type& param(const Type& param) {
     params_.push_back(param);
@@ -128,10 +98,14 @@ class Type {
     return *this;
   }
   /// Returns true if "type" is of a known collection type (only a few for now)
-  bool IsCollection() {
+  bool IsCollection() const {
     return name_ == "List" || name_ == "Iterable";
   }
-  /// Scans this type and any of its parameter types.
+  /// Returns true if this instance is a wildcard (<?>)
+  bool IsWildcard() const {
+    return kind_ == GENERIC && name_.empty();
+  }
+  /// Scans this type and any of its parameter types
   template <class TypeScanner> void Scan(TypeScanner* scanner) const;
 
  protected:
@@ -142,10 +116,10 @@ class Type {
   Kind kind_;
   string name_;
   string package_;
+  string descr_;
   std::vector<Type> params_;
   std::vector<Annotation> annotations_;
   std::deque<Type> supertypes_;
-  Doc doc_;
 };
 
 /// \brief Definition of a Java annotation
@@ -154,8 +128,8 @@ class Type {
 /// giving optionally a set of attributes to initialize.
 class Annotation : public Type {
  public:
-  static Annotation OfType(const string& type_name, const string& pkg = "") {
-    return Type(Type::ANNOTATION, type_name, pkg);
+  static Annotation Of(const string& type_name, const string& package = "") {
+    return Type(Type::ANNOTATION, type_name, package);
   }
   const string& attrs() const { return attrs_; }
   Annotation& attrs(const string& attrs) { attrs_ = attrs; return *this; }
@@ -169,10 +143,7 @@ class Annotation : public Type {
 /// This class defines an instance of a type, which could be documented.
 class Variable {
  public:
-  static Variable Field(const string& name, const Type& type) {
-    return Variable(name, type, false);
-  }
-  static Variable Arg(const string& name, const Type& type) {
+  static Variable Of(const string& name, const Type& type) {
     return Variable(name, type, false);
   }
   static Variable VarArg(const string& name, const Type& type) {
@@ -181,15 +152,14 @@ class Variable {
   const string& name() const { return name_; }
   const Type& type() const { return type_; }
   bool variadic() const { return variadic_; }
-  const Doc& doc() const { return doc_; }
-  Doc* mutable_doc() { return &doc_; }
-  Variable& doc(const Doc& doc) { doc_ = doc; return *this; }
+  const string& descr() const { return descr_; }
+  Variable& descr(const string& descr) { descr_ = descr; return *this; }
 
  private:
   string name_;
   Type type_;
   bool variadic_;
-  Doc doc_;
+  string descr_;
 
   Variable(const string& name, const Type& type, bool variadic)
     : name_(name), type_(type), variadic_(variadic) {}
@@ -201,18 +171,17 @@ class Variable {
 /// type and arguments.
 class Method {
  public:
+  static Method Of(const string& name, const Type& return_type) {
+    return Method(name, return_type, false);
+  }
   static Method ConstructorFor(const Type& clazz) {
     return Method(clazz.name(), clazz, true);
-  }
-  static Method Member(const string& name, const Type& return_type) {
-    return Method(name, return_type, false);
   }
   const string& name() const { return name_; }
   const Type& return_type() const { return return_type_; }
   bool constructor() const { return constructor_; }
-  const Doc& doc() const { return doc_; }
-  Doc* mutable_doc() { return &doc_; }
-  Method& doc(const Doc& doc) { doc_ = doc; return *this; }
+  const string& descr() const { return descr_; }
+  Method& descr(const string& descr) { descr_ = descr; return *this; }
   const std::vector<Variable>& args() const { return args_; }
   Method& args(const std::vector<Variable>& args) {
     args_.insert(args_.cend(), args.cbegin(), args.cend());
@@ -232,12 +201,24 @@ class Method {
   string name_;
   Type return_type_;
   bool constructor_;
+  string descr_;
   std::vector<Variable> args_;
   std::vector<Annotation> annotations_;
-  Doc doc_;
 
   Method(const string& name, const Type& return_type, bool constructor)
     : name_(name), return_type_(return_type), constructor_(constructor) {}
+};
+
+/// \brief A piece of code to read from a file.
+class Snippet {
+ public:
+  explicit Snippet(const string& fname, Env* env = Env::Default()) {
+    TF_CHECK_OK(ReadFileToString(env, fname, &data_));
+  }
+  const string& data() const { return data_; }
+
+ private:
+  string data_;
 };
 
 // Templates implementation

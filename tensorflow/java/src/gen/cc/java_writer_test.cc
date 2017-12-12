@@ -27,7 +27,7 @@ namespace {
 
 TEST(Basics, BlocksAndLines) {
   SourceBufferWriter writer;
-  JavaSourceStream java_writer(&writer);
+  SourceStream java_writer(&writer);
 
   java_writer << "int i = 0;" << endl
       << "int j = 10;" << endl
@@ -54,15 +54,15 @@ TEST(Basics, BlocksAndLines) {
 
 TEST(Basics, Types) {
   SourceBufferWriter writer;
-  JavaSourceStream java_writer(&writer);
+  SourceStream java_writer(&writer);
 
-  JavaType generic = Java::Generic("T").supertype(Java::Class("Number"));
-  java_writer << Java::Type("int") << ", "
-      << Java::Class("String") << ", "
+  Type generic = Type::Generic("T").supertype(Type::Class("Number"));
+  java_writer << Type::Type("int") << ", "
+      << Type::Class("String") << ", "
       << generic << ", "
-      << Java::ListOf(generic) << ", "
-      << Java::ListOf(Java::IterableOf(generic)) << ", "
-      << Java::ListOf(Java::Wildcard());
+      << Type::ListOf(generic) << ", "
+      << Type::ListOf(Type::IterableOf(generic)) << ", "
+      << Type::ListOf(Type::Wildcard());
 
   const char* expected =
       "int, String, T, List<T>, List<Iterable<T>>, List<?>";
@@ -71,9 +71,9 @@ TEST(Basics, Types) {
 
 TEST(Basics, Snippets) {
   SourceBufferWriter writer;
-  JavaSourceStream java_writer(&writer);
+  SourceStream java_writer(&writer);
 
-  JavaSnippet snippet(io::JoinPath(kGenResourcePath, "test.snippet.java"));
+  Snippet snippet(io::JoinPath(kGenResourcePath, "test.snippet.java"));
   java_writer << snippet
       << beginb
       << snippet
@@ -91,10 +91,10 @@ TEST(Basics, Snippets) {
 
 TEST(WriteClass, SimpleClass) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC)->EndClass();
+  Type clazz = Type::Class("Test", "org.test");
+  java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC)->EndClass();
 
   const char* expected = "package org.test;\n\n"
       "public class Test {\n}\n";
@@ -103,15 +103,15 @@ TEST(WriteClass, SimpleClass) {
 
 TEST(WriteClass, SimpleClassWithImports) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  std::set<JavaType> imports;
-  imports.insert(Java::Class("TypeA", "org.test.sub"));
-  imports.insert(Java::Class("TypeA", "org.test.sub"));  // a second time
-  imports.insert(Java::Class("TypeB", "org.other"));
-  imports.insert(Java::Class("SamePackageType", "org.test"));
-  imports.insert(Java::Class("NoPackageType"));
+  Type clazz = Type::Class("Test", "org.test");
+  std::set<Type> imports;
+  imports.insert(Type::Class("TypeA", "org.test.sub"));
+  imports.insert(Type::Class("TypeA", "org.test.sub"));  // a second time
+  imports.insert(Type::Class("TypeB", "org.other"));
+  imports.insert(Type::Class("SamePackageType", "org.test"));
+  imports.insert(Type::Class("NoPackageType"));
   java_writer.BeginClass(clazz, imports, PUBLIC)->EndClass();
 
   const char* expected =
@@ -125,13 +125,13 @@ TEST(WriteClass, SimpleClassWithImports) {
 
 TEST(WriteClass, AnnotatedAndDocumentedClass) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  clazz.doc_ptr()->descr("This class has a\n<p>\nmultiline description.");
-  clazz.annotation(Java::Annot("Bean"));
-  clazz.annotation(Java::Annot("SuppressWarnings").attrs("\"rawtypes\""));
-  java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC)->EndClass();
+  Type clazz = Type::Class("Test", "org.test");
+  clazz.descr("This class has a\n<p>\nmultiline description.");
+  clazz.annotation(Annotation::Of("Bean"));
+  clazz.annotation(Annotation::Of("SuppressWarnings").attrs("\"rawtypes\""));
+  java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC)->EndClass();
 
   const char* expected = "package org.test;\n\n"
       "/**\n"
@@ -147,12 +147,12 @@ TEST(WriteClass, AnnotatedAndDocumentedClass) {
 
 TEST(WriteClass, ParameterizedClass) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  clazz.param(Java::Generic("T"));
-  clazz.param(Java::Generic("U").supertype(Java::Class("Number")));
-  java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC)->EndClass();
+  Type clazz = Type::Class("Test", "org.test");
+  clazz.param(Type::Generic("T"));
+  clazz.param(Type::Generic("U").supertype(Type::Class("Number")));
+  java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC)->EndClass();
 
   const char* expected =
       "package org.test;\n\n"
@@ -162,16 +162,16 @@ TEST(WriteClass, ParameterizedClass) {
 
 TEST(WriteClass, ParameterizedClassAndSupertypes) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaType type_t = Java::Generic("T");
+  Type clazz = Type::Class("Test", "org.test");
+  Type type_t = Type::Generic("T");
   clazz.param(type_t);
-  JavaType type_u = Java::Generic("U").supertype(Java::Class("Number"));
+  Type type_u = Type::Generic("U").supertype(Type::Class("Number"));
   clazz.param(type_u);
-  clazz.supertype(Java::Class("SuperTest").param(type_t));
-  clazz.supertype(Java::Interface("TestInf").param(type_u));
-  java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC)->EndClass();
+  clazz.supertype(Type::Class("SuperTest").param(type_t));
+  clazz.supertype(Type::Interface("TestInf").param(type_u));
+  java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC)->EndClass();
 
   const char* expected =
       "package org.test;\n\n"
@@ -182,19 +182,19 @@ TEST(WriteClass, ParameterizedClassAndSupertypes) {
 
 TEST(WriteClass, ParameterizedClassFields) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaType type_t = Java::Generic("T").supertype(Java::Class("Number"));
+  Type clazz = Type::Class("Test", "org.test");
+  Type type_t = Type::Generic("T").supertype(Type::Class("Number"));
   clazz.param(type_t);
-  JavaClassWriter* clazz_writer
-      = java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC);
+  ClassWriter* clazz_writer
+      = java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC);
 
-  std::vector<JavaVar> static_fields;
-  static_fields.push_back(Java::Var("field1", Java::Class("String")));
-  std::vector<JavaVar> member_fields;
-  member_fields.push_back(Java::Var("field2", Java::Class("String")));
-  member_fields.push_back(Java::Var("field3", type_t));
+  std::vector<Variable> static_fields;
+  static_fields.push_back(Variable::Of("field1", Type::Class("String")));
+  std::vector<Variable> member_fields;
+  member_fields.push_back(Variable::Of("field2", Type::Class("String")));
+  member_fields.push_back(Variable::Of("field3", type_t));
 
   clazz_writer->WriteFields(static_fields, STATIC | PUBLIC | FINAL)
       ->WriteFields(member_fields, PRIVATE)
@@ -214,13 +214,13 @@ TEST(WriteClass, ParameterizedClassFields) {
 
 TEST(WriteClass, SimpleInnerClass) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaClassWriter* clazz_writer
-      = java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC);
+  Type clazz = Type::Class("Test", "org.test");
+  ClassWriter* clazz_writer
+      = java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC);
 
-  JavaType inner_class = Java::Class("InnerTest");
+  Type inner_class = Type::Class("InnerTest");
   clazz_writer->BeginInnerClass(inner_class, PUBLIC)->EndClass();
   clazz_writer->EndClass();
 
@@ -236,15 +236,15 @@ TEST(WriteClass, SimpleInnerClass) {
 
 TEST(WriteClass, StaticParameterizedInnerClass) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaType type_t = Java::Generic("T").supertype(Java::Class("Number"));
+  Type clazz = Type::Class("Test", "org.test");
+  Type type_t = Type::Generic("T").supertype(Type::Class("Number"));
   clazz.param(type_t);
-  JavaClassWriter* clazz_writer
-      = java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC);
+  ClassWriter* clazz_writer
+      = java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC);
 
-  JavaType inner_class = Java::Class("InnerTest");
+  Type inner_class = Type::Class("InnerTest");
   inner_class.param(type_t);
   clazz_writer->BeginInnerClass(inner_class, PUBLIC | STATIC)->EndClass();
   clazz_writer->EndClass();
@@ -261,13 +261,13 @@ TEST(WriteClass, StaticParameterizedInnerClass) {
 
 TEST(WriteMethod, SimpleMethod) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaClassWriter* clazz_writer
-      = java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC);
+  Type clazz = Type::Class("Test", "org.test");
+  ClassWriter* clazz_writer
+      = java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC);
 
-  JavaMethod method = Java::Method("doNothing", Java::Type("void"));
+  Method method = Method::Of("doNothing", Type::Type("void"));
   clazz_writer->BeginMethod(method, PUBLIC)->EndMethod();
   clazz_writer->EndClass();
 
@@ -283,16 +283,16 @@ TEST(WriteMethod, SimpleMethod) {
 
 TEST(WriteMethod, AnnotatedAndDocumentedMethod) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaClassWriter* clazz_writer
-      = java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC);
+  Type clazz = Type::Class("Test", "org.test");
+  ClassWriter* clazz_writer
+      = java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC);
 
-  JavaMethod method = Java::Method("doNothing", Java::Type("void"));
-  method.doc_ptr()->descr("This method has a\n<p>\nmultiline description.");
-  method.annotation(Java::Annot("Override"));
-  method.annotation(Java::Annot("SuppressWarnings").attrs("\"rawtypes\""));
+  Method method = Method::Of("doNothing", Type::Type("void"));
+  method.descr("This method has a\n<p>\nmultiline description.");
+  method.annotation(Annotation::Of("Override"));
+  method.annotation(Annotation::Of("SuppressWarnings").attrs("\"rawtypes\""));
   clazz_writer->BeginMethod(method, PUBLIC)->EndMethod();
   clazz_writer->EndClass();
 
@@ -315,20 +315,20 @@ TEST(WriteMethod, AnnotatedAndDocumentedMethod) {
 
 TEST(WriteMethod, DocumentedMethodWithArguments) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaClassWriter* clazz_writer
-      = java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC);
+  Type clazz = Type::Class("Test", "org.test");
+  ClassWriter* clazz_writer
+      = java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC);
 
-  JavaMethod method = Java::Method("boolToInt", Java::Type("int"));
-  method.doc_ptr()->descr("Converts a boolean to an int");
+  Method method = Method::Of("boolToInt", Type::Type("int"));
+  method.descr("Converts a boolean to an int");
   method.doc_ptr()->value("int value for this boolean");
-  method.arg(Java::Var("b", Java::Type("boolean")));
-  JavaVar reverse = Java::Var("reverse", Java::Type("boolean"));
-  reverse.doc_ptr()->descr("if true, value is reversed");
+  method.arg(Variable::Of("b", Type::Type("boolean")));
+  Variable reverse = Variable::Of("reverse", Type::Type("boolean"));
+  reverse.descr("if true, value is reversed");
   method.arg(reverse);
-  JavaMethodWriter* method_writer = clazz_writer->BeginMethod(method, PUBLIC);
+  MethodWriter* method_writer = clazz_writer->BeginMethod(method, PUBLIC);
   (*method_writer) << "if (b && !reverse)"
       << beginb
       << "return 1;" << endl
@@ -360,16 +360,16 @@ TEST(WriteMethod, DocumentedMethodWithArguments) {
 
 TEST(WriteMethod, ParameterizedMethod) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaType type_t = Java::Generic("T").supertype(Java::Class("Number"));
+  Type clazz = Type::Class("Test", "org.test");
+  Type type_t = Type::Generic("T").supertype(Type::Class("Number"));
   clazz.param(type_t);
-  JavaClassWriter* clazz_writer
-      = java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC);
+  ClassWriter* clazz_writer
+      = java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC);
 
-  JavaMethod method = Java::Method("doNothing", type_t);
-  JavaMethodWriter* method_writer = clazz_writer->BeginMethod(method, PUBLIC);
+  Method method = Method::Of("doNothing", type_t);
+  MethodWriter* method_writer = clazz_writer->BeginMethod(method, PUBLIC);
   (*method_writer) << "return null;" << endl;
   method_writer->EndMethod();
   clazz_writer->EndClass();
@@ -387,16 +387,16 @@ TEST(WriteMethod, ParameterizedMethod) {
 
 TEST(WriteMethod, StaticParameterizedMethod) {
   SourceBufferWriter writer;
-  JavaWriter java_writer(&writer);
+  Writer java_writer(&writer);
 
-  JavaType clazz = Java::Class("Test", "org.test");
-  JavaType type_t = Java::Generic("T").supertype(Java::Class("Number"));
+  Type clazz = Type::Class("Test", "org.test");
+  Type type_t = Type::Generic("T").supertype(Type::Class("Number"));
   clazz.param(type_t);
-  JavaClassWriter* clazz_writer
-      = java_writer.BeginClass(clazz, std::set<JavaType>(), PUBLIC);
+  ClassWriter* clazz_writer
+      = java_writer.BeginClass(clazz, std::set<Type>(), PUBLIC);
 
-  JavaMethod method = Java::Method("doNothing", type_t);
-  JavaMethodWriter* method_writer =
+  Method method = Method::Of("doNothing", type_t);
+  MethodWriter* method_writer =
       clazz_writer->BeginMethod(method, PUBLIC | STATIC);
   (*method_writer) << "return null;" << endl;
   method_writer->EndMethod();

@@ -133,7 +133,7 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
       } else {
         Variable attr_var = Variable::Of(attr_name,
           type.is_list ? Type::ListOf(type.dt) : type.dt);
-        attr_var.descr(attr.description()));
+        attr_var.descr(attr.description());
         tmpl.AddAttribute(attr_var, attr.has_default_value());
       }
     }

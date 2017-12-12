@@ -27,36 +27,33 @@ namespace java {
 
 typedef std::function<void(OpTemplate*, const string&)> TestFunc;
 
-Doc GenerateDoc(const string& name) {
-  Doc doc;
-  doc.brief("This is a short description of this " + name);
-  doc.descr("This is a longer description of this " + name
-     + " with multiple line breaks\n\n\nthat should all be prefixed by a star");
-  return doc;
+inline string GenerateDoc(const string& name) {
+  return "This is a longer description of this " + name
+     + " with multiple line breaks\n\n\nthat should all be prefixed by a star";
 }
 
 void RenderSingleOutputOp(const TestFunc& tester) {
   OpTemplate tmpl("Test");
 
-  Type tensor_type = TypeType::Generic("T")
+  Type tensor_type = Type::Generic("T")
       .supertype(Type::Class("Number"));
   Type op_class = Type::Class("SingleOutputOp", "org.tensorflow.op.test")
-      .doc(GenerateDoc("class"))
+      .descr(GenerateDoc("class"))
       .param(tensor_type)
-      .annotation(Annotation::OfType("Operator", "org.tensorflow.op.annotation")
+      .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
           .attrs("group = \"test\""));
   tmpl.OpClass(op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_type);
-  Variable input = Variable::Field("input", input_type)
-      .doc(GenerateDoc("input"));
+  Variable input = Variable::Of("input", input_type)
+      .descr(GenerateDoc("input"));
   tmpl.AddInput(input);
 
   Type output_type = Type::Class("Output", "org.tensorflow")
       .param(tensor_type);
-  Variable output = Variable::Field("output", output_type)
-      .doc(GenerateDoc("output"));
+  Variable output = Variable::Of("output", output_type)
+      .descr(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
   tester(&tmpl, op_class.name());
@@ -68,22 +65,22 @@ void RenderSingleOutputListOp(const TestFunc& tester) {
   Type tensor_type = Type::Generic("T")
       .supertype(Type::Class("Number"));
   Type op_class = Type::Class("SingleOutputListOp", "org.tensorflow.op.test")
-      .doc(GenerateDoc("class"))
+      .descr(GenerateDoc("class"))
       .param(tensor_type)
-      .annotation(Annotation::OfType("Operator", "org.tensorflow.op.annotation")
+      .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
           .attrs("group = \"test\""));
   tmpl.OpClass(op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_type);
-  Variable input = Variable::Field("input", input_type)
-      .doc(GenerateDoc("input"));
+  Variable input = Variable::Of("input", input_type)
+      .descr(GenerateDoc("input"));
   tmpl.AddInput(input);
 
   Type output_type = Type::Class("Output", "org.tensorflow")
       .param(tensor_type);
-  Variable output = Variable::Field("outputList", Type::ListOf(output_type))
-      .doc(GenerateDoc("outputList"));
+  Variable output = Variable::Of("outputList", Type::ListOf(output_type))
+      .descr(GenerateDoc("outputList"));
   tmpl.AddOutput(output);
 
   tester(&tmpl, op_class.name());
@@ -96,35 +93,35 @@ void RenderMultipleAndMixedOutputsOp(const TestFunc& tester) {
   Type tensor_b_type = Type::Generic("U");
   Type op_class =
       Type::Class("MultipleAndMixedOutputsOp", "org.tensorflow.op.test")
-          .doc(GenerateDoc("class"))
+          .descr(GenerateDoc("class"))
           .param(tensor_a_type)
           .param(tensor_b_type)
-          .annotation(Annotation::OfType("Operator", "org.tensorflow.op.annotation")
+          .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
   tmpl.OpClass(op_class);
 
   Type input_a_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_a_type);
-  Variable input_a = Variable::Field("input", input_a_type)
-      .doc(GenerateDoc("input"));
+  Variable input_a = Variable::Of("input", input_a_type)
+      .descr(GenerateDoc("input"));
   tmpl.AddInput(input_a);
 
   Type input_b_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_a_type);
-  Variable input_b = Variable::Field("inputList", Type::IterableOf(input_b_type))
-      .doc(GenerateDoc("inputList"));
+  Variable input_b = Variable::Of("inputList", Type::IterableOf(input_b_type))
+      .descr(GenerateDoc("inputList"));
   tmpl.AddInput(input_b);
 
   Type output_a_type = Type::Class("Output", "org.tensorflow")
       .param(tensor_a_type);
-  Variable output_a = Variable::Field("output", output_a_type)
-      .doc(GenerateDoc("output"));
+  Variable output_a = Variable::Of("output", output_a_type)
+      .descr(GenerateDoc("output"));
   tmpl.AddOutput(output_a);
 
   Type output_b_type = Type::Class("Output", "org.tensorflow")
       .param(tensor_b_type);
-  Variable output_b = Variable::Field("outputList", Type::ListOf(output_b_type))
-      .doc(GenerateDoc("output list"));
+  Variable output_b = Variable::Of("outputList", Type::ListOf(output_b_type))
+      .descr(GenerateDoc("output list"));
   tmpl.AddOutput(output_b);
 
   tester(&tmpl, op_class.name());
@@ -136,30 +133,30 @@ void RenderOptionalAndMandatoryAttributesOp(const TestFunc& tester) {
   Type tensor_type = Type::Generic("T");
   Type op_class =
       Type::Class("OptionalAndMandatoryAttributesOp", "org.tensorflow.op.test")
-          .doc(GenerateDoc("class"))
+          .descr(GenerateDoc("class"))
           .param(tensor_type)
-          .annotation(Annotation::OfType("Operator", "org.tensorflow.op.annotation")
+          .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
   tmpl.OpClass(op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_type);
-  Variable input = Variable::Field("input", input_type)
-      .doc(GenerateDoc("input"));
+  Variable input = Variable::Of("input", input_type)
+      .descr(GenerateDoc("input"));
   tmpl.AddInput(input);
 
-  Variable attr = Variable::Field("attr", Type::Class("Integer"))
-      .doc(GenerateDoc("attribute"));
+  Variable attr = Variable::Of("attr", Type::Class("Integer"))
+      .descr(GenerateDoc("attribute"));
   tmpl.AddAttribute(attr, false);
 
-  Variable opt_attr = Variable::Field("opt", Type::Class("Integer"))
-      .doc(GenerateDoc("optional attribute"));
+  Variable opt_attr = Variable::Of("opt", Type::Class("Integer"))
+      .descr(GenerateDoc("optional attribute"));
   tmpl.AddAttribute(opt_attr, true);
 
   Type output_type = Type::Class("Output", "org.tensorflow")
       .param(tensor_type);
-  Variable output = Variable::Field("output", output_type)
-      .doc(GenerateDoc("output"));
+  Variable output = Variable::Of("output", output_type)
+      .descr(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
   tester(&tmpl, op_class.name());
@@ -171,21 +168,21 @@ void RenderTypedInputListOp(const TestFunc& tester) {
   Type tensor_type = Type::Class("Integer");
   Type op_class =
       Type::Class("TypedInputListOp", "org.tensorflow.op.test")
-          .doc(GenerateDoc("class"))
-          .annotation(Annotation::OfType("Operator", "org.tensorflow.op.annotation")
+          .descr(GenerateDoc("class"))
+          .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
   tmpl.OpClass(op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_type);
-  Variable input_list = Variable::Field("inputList", Type::IterableOf(input_type))
-      .doc(GenerateDoc("inputList"));
+  Variable input_list = Variable::Of("inputList", Type::IterableOf(input_type))
+      .descr(GenerateDoc("inputList"));
   tmpl.AddInput(input_list);
 
   Type output_type = Type::Class("Output", "org.tensorflow")
       .param(tensor_type);
-  Variable output = Variable::Field("output", output_type)
-      .doc(GenerateDoc("output"));
+  Variable output = Variable::Of("output", output_type)
+      .descr(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
   tester(&tmpl, op_class.name());
@@ -196,21 +193,21 @@ void RenderWildcardInputListOp(const TestFunc& tester) {
 
   Type op_class =
       Type::Class("WildcardInputListOp", "org.tensorflow.op.test")
-          .doc(GenerateDoc("class"))
-          .annotation(Annotation::OfType("Operator", "org.tensorflow.op.annotation")
+          .descr(GenerateDoc("class"))
+          .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
   tmpl.OpClass(op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(Type::Wildcard());
-  Variable input_list = Variable::Field("inputList", Type::IterableOf(input_type))
-      .doc(GenerateDoc("inputList"));
+  Variable input_list = Variable::Of("inputList", Type::IterableOf(input_type))
+      .descr(GenerateDoc("inputList"));
   tmpl.AddInput(input_list);
 
   Type output_type = Type::Class("Output", "org.tensorflow")
       .param(Type::Wildcard());
-  Variable output = Variable::Field("output", output_type)
-      .doc(GenerateDoc("output"));
+  Variable output = Variable::Of("output", output_type)
+      .descr(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
   tester(&tmpl, op_class.name());
@@ -224,21 +221,21 @@ void RenderDeclaredOutputTypeOp(const TestFunc& tester) {
   Type op_class =
       Type::Class("DeclaredOutputTypeOp", "org.tensorflow.op.test")
           .param(tensor_type)
-          .doc(GenerateDoc("class"))
-          .annotation(Annotation::OfType("Operator", "org.tensorflow.op.annotation")
+          .descr(GenerateDoc("class"))
+          .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
   tmpl.OpClass(op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(Type::Wildcard());
-  Variable input = Variable::Field("input", input_type)
-      .doc(GenerateDoc("input"));
+  Variable input = Variable::Of("input", input_type)
+      .descr(GenerateDoc("input"));
   tmpl.AddInput(input);
 
   Type output_type = Type::Class("Output", "org.tensorflow")
       .param(tensor_type);
-  Variable output = Variable::Field("output", output_type)
-      .doc(GenerateDoc("output"));
+  Variable output = Variable::Of("output", output_type)
+      .descr(GenerateDoc("output"));
   tmpl.AddOutput(output);
 
   tester(&tmpl, op_class.name());

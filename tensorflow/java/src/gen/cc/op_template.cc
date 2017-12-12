@@ -107,7 +107,7 @@ void OpTemplate::CollectImports(const Type& type) {
       this->imports_.insert(*type);
     }
   };
-  type.Scan(&import_scanner);
+  ScanTypes(type, &import_scanner);
 }
 
 void OpTemplate::RenderToFile(const string& root_dir, Env* env) {
@@ -208,7 +208,7 @@ void OpTemplate::RenderFactoryMethod(ClassWriter* op_writer) {
   Method factory = Method::Of("create", op_class_);
   factory.descr("Factory method to create a class to wrap a new "
           + op_name_ + " operation to the graph.");
-  factory.return_type().descr("a new instance of " + op_class_.name());
+  factory.ret_descr("a new instance of " + op_class_.name());
   factory.arg(scope);
   factory.args(inputs_);
   factory.args(attrs_);

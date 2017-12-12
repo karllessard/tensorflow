@@ -156,7 +156,7 @@ SourceStream& SourceStream::operator<<(const Type& type) {
 
 ClassWriter* ClassWriter::Begin(const Type& clazz, int modifiers) {
   GenericTypeScanner generics(&declared_generics_);
-  clazz.Scan(&generics);
+  ScanTypes(clazz, &generics);
   WriteDoc(clazz.descr(), nullptr, nullptr, src_writer_);
   if (!clazz.annotations().empty()) {
     WriteAnnotationations(clazz.annotations(), src_writer_);
@@ -196,7 +196,7 @@ MethodWriter* ClassWriter::BeginMethod(const Method& method,
     int modifiers) {
   *this << endl;
   const string* ret_descr =
-      method.constructor() ? nullptr : &method.return_type().descr();
+      method.constructor() ? nullptr : &method.ret_descr();
   WriteDoc(method.descr(), ret_descr, &method.args(), src_writer_);
   if (!method.annotations().empty()) {
     WriteAnnotationations(method.annotations(), src_writer_);
@@ -213,14 +213,14 @@ MethodWriter* ClassWriter::BeginMethod(const Method& method,
 MethodWriter* MethodWriter::Begin(const Method& method,
     int modifiers) {
   GenericTypeScanner generics(&declared_generics_);
-  method.ScanTypes(&generics, false);
+  ScanArgTypes(method, generics);
   WriteModifiers(modifiers, src_writer_);
   if (!generics.discoveredTypes().empty()) {
     WriteGenerics(generics.discoveredTypes(), src_writer_);
     *this << " ";
   }
   if (!method.constructor()) {
-    *this << method.return_type() << " ";
+    *this << method.ret_type() << " ";
   }
   *this << method.name() << "(";
   if (!method.args().empty()) {

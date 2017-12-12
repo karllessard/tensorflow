@@ -323,7 +323,7 @@ TEST(WriteMethod, DocumentedMethodWithArguments) {
 
   Method method = Method::Of("boolToInt", Type::Type("int"));
   method.descr("Converts a boolean to an int");
-  method.doc_ptr()->value("int value for this boolean");
+  method.ret_descr("int value for this boolean");
   method.arg(Variable::Of("b", Type::Type("boolean")));
   Variable reverse = Variable::Of("reverse", Type::Type("boolean"));
   reverse.descr("if true, value is reversed");

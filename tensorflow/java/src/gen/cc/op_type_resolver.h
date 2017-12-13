@@ -22,10 +22,18 @@ limitations under the License.
 namespace tensorflow {
 namespace java {
 
-struct ResolvedType {
-  Type dt;
-  bool is_list = false;
-  bool is_inferred = false;  // only true for attribute types
+class TypeInfo {
+ public:
+  TypeInfo(const Type& type, bool list = false, bool inferred = false)
+    : type_(type), collection_(list), inferred_(inferred) {}
+  const Type& type() const { return type_; }
+  bool collection() const { return collection_; }
+  bool inferred() const { return inferred_; }
+
+ private:
+  Type type_;
+  bool collection_;
+  bool inferred_;  // only true for attribute types
 };
 
 class OpTypeResolver {
@@ -33,14 +41,16 @@ class OpTypeResolver {
   OpTypeResolver() {}
   virtual ~OpTypeResolver() {}
 
-  ResolvedType TypeOf(const OpDef_ArgDef& arg, const OpDef& op, bool is_input);
-  ResolvedType TypeOf(const OpDef_AttrDef& attr, bool is_inferred = false);
+  TypeInfo TypeOf(const OpDef_ArgDef& arg, const OpDef& op, bool is_input);
+  TypeInfo TypeOf(const OpDef_AttrDef& attr, bool is_inferred = false);
 
  private:
-  std::map<string, ResolvedType> resolved_attrs_;
+  std::map<string, TypeInfo> resolved_attrs_;
   char next_generic_ = 'T';
 
-  Type GetNextGeneric(const AttrValue& allowed_values);
+  Type AttrType(const OpDef_AttrDef& attr, bool list);
+  Type ArgType(const DataType arg_type);
+  Type NextGenericType(const AttrValue& allowed_values);
 };
 
 }  // namespace java

@@ -46,6 +46,11 @@ class Type {
   enum Kind {
     PRIMITIVE, CLASS, INTERFACE, ENUM, GENERIC, ANNOTATION
   };
+  struct Comparator {
+    bool operator() (const Type& type1, const Type& type2) {
+      return type1.name_ < type2.name_ || type1.package_ < type2.package_;
+    }
+  };
   static Type Primitive(const string& name) {
     return Type(Type::PRIMITIVE, name, "");
   }
@@ -105,6 +110,10 @@ class Type {
   bool IsWildcard() const {
     return kind_ == GENERIC && name_.empty();
   }
+  bool operator==(const Type& type) const {
+      return name_ == type.name_ && package_ == type.package_;
+  }
+  bool operator!=(const Type& type) const { return !(*this == type); }
 
  protected:
   Type(Kind kind, const string& name, const string& package)
@@ -127,13 +136,16 @@ class Type {
 class Annotation : public Type {
  public:
   static Annotation Of(const string& type_name, const string& package = "") {
-    return Type(Type::ANNOTATION, type_name, package);
+    return Annotation(type_name, package);
   }
   const string& attrs() const { return attrs_; }
   Annotation& attrs(const string& attrs) { attrs_ = attrs; return *this; }
 
  private:
   string attrs_;
+
+  Annotation(const string& name, const string& package)
+    : Type(Kind::ANNOTATION, name, package) {}
 };
 
 /// \brief A definition of a Java variable
@@ -195,10 +207,10 @@ class Method {
   }
 
  private:
-  bool constructor_;
   string name_;
-  string descr_;
   Type ret_type_;
+  bool constructor_;
+  string descr_;
   string ret_descr_;
   std::vector<Variable> args_;
   std::vector<Annotation> annotations_;
@@ -222,17 +234,18 @@ class Snippet {
 // Templates implementation
 
 template <typename TypeScanner>
-void ScanForTypes(const Type& type_root, TypeScanner* scanner) {
-  (*scanner)(type_root);
-  ScanForTypes(type_root.params(), scanner);
-  ScanForTypes(type_root.annotations(), scanner);
-  ScanForTypes(type_root.supertypes(), scanner);
-}
-
-template <typename TypeContainer, typename TypeScanner>
-void ScanForTypes(const TypeContainer& types, TypeScanner* scanner) {
-  for (auto it = types.cbegin(); it != types.cend(); ++it) {
-    it->Scan(scanner);
+void ScanForTypes(const Type& type, TypeScanner* scanner) {
+  (*scanner)(type);
+  for (auto it = type.params().cbegin(); it != type.params().cend(); ++it) {
+    ScanForTypes(*it, scanner);
+  }
+  for (auto it = type.annotations().cbegin(); it != type.annotations().cend();
+      ++it) {
+    ScanForTypes(*it, scanner);
+  }
+  for (auto it = type.supertypes().cbegin(); it != type.supertypes().cend();
+      ++it) {
+    ScanForTypes(*it, scanner);
   }
 }
 

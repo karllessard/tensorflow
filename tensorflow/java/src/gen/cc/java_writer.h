@@ -181,7 +181,7 @@ class Writer : public SourceStream {
   /// The returned writer should be used to write the content of the class and
   /// closed properly by calling EndOfClass().
   ClassWriter* BeginClass(const Type& clazz,
-      const std::set<Type>& imports, int modifiers = 0);
+      const std::set<Type, Type::Comparator>& imports, int modifiers = 0);
 };
 
 }  // namespace java

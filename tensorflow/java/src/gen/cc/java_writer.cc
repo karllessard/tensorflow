@@ -36,11 +36,11 @@ class GenericTypeScanner {
   const std::vector<const Type*>& discoveredTypes() const {
     return discovered_types_;
   }
-  void operator()(const Type* type) {
-    if (type->kind() == Type::GENERIC && !type->name().empty()
-        && (declared_names_->find(type->name()) == declared_names_->end())) {
-      discovered_types_.push_back(type);
-      declared_names_->insert(type->name());
+  void operator()(const Type& type) {
+    if (type.kind() == Type::GENERIC && !type.name().empty()
+        && (declared_names_->find(type.name()) == declared_names_->end())) {
+      discovered_types_.push_back(&type);
+      declared_names_->insert(type.name());
     }
   }
  private:
@@ -249,7 +249,7 @@ ClassWriter* ClassWriter::BeginInnerClass(const Type& clazz,
 }
 
 ClassWriter* Writer::BeginClass(const Type& clazz,
-    const std::set<Type>& imports, int modifiers) {
+    const std::set<Type, Type::Comparator>& imports, int modifiers) {
   *this << "package " << clazz.package() << ";" << endl << endl;
   if (!imports.empty()) {
     std::set<Type>::const_iterator it;

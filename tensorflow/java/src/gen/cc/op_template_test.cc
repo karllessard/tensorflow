@@ -33,8 +33,6 @@ inline string GenerateDoc(const string& name) {
 }
 
 void RenderSingleOutputOp(const TestFunc& tester) {
-  OpTemplate tmpl("Test");
-
   Type tensor_type = Type::Generic("T")
       .supertype(Type::Class("Number"));
   Type op_class = Type::Class("SingleOutputOp", "org.tensorflow.op.test")
@@ -42,7 +40,8 @@ void RenderSingleOutputOp(const TestFunc& tester) {
       .param(tensor_type)
       .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
           .attrs("group = \"test\""));
-  tmpl.OpClass(op_class);
+
+  OpTemplate tmpl("Test", op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_type);
@@ -60,8 +59,6 @@ void RenderSingleOutputOp(const TestFunc& tester) {
 }
 
 void RenderSingleOutputListOp(const TestFunc& tester) {
-  OpTemplate tmpl("Test");
-
   Type tensor_type = Type::Generic("T")
       .supertype(Type::Class("Number"));
   Type op_class = Type::Class("SingleOutputListOp", "org.tensorflow.op.test")
@@ -69,7 +66,8 @@ void RenderSingleOutputListOp(const TestFunc& tester) {
       .param(tensor_type)
       .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
           .attrs("group = \"test\""));
-  tmpl.OpClass(op_class);
+
+  OpTemplate tmpl("Test", op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_type);
@@ -87,8 +85,6 @@ void RenderSingleOutputListOp(const TestFunc& tester) {
 }
 
 void RenderMultipleAndMixedOutputsOp(const TestFunc& tester) {
-  OpTemplate tmpl("Test");
-
   Type tensor_a_type = Type::Generic("T");
   Type tensor_b_type = Type::Generic("U");
   Type op_class =
@@ -98,7 +94,8 @@ void RenderMultipleAndMixedOutputsOp(const TestFunc& tester) {
           .param(tensor_b_type)
           .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
-  tmpl.OpClass(op_class);
+
+  OpTemplate tmpl("Test", op_class);
 
   Type input_a_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_a_type);
@@ -128,8 +125,6 @@ void RenderMultipleAndMixedOutputsOp(const TestFunc& tester) {
 }
 
 void RenderOptionalAndMandatoryAttributesOp(const TestFunc& tester) {
-  OpTemplate tmpl("Test");
-
   Type tensor_type = Type::Generic("T");
   Type op_class =
       Type::Class("OptionalAndMandatoryAttributesOp", "org.tensorflow.op.test")
@@ -137,7 +132,8 @@ void RenderOptionalAndMandatoryAttributesOp(const TestFunc& tester) {
           .param(tensor_type)
           .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
-  tmpl.OpClass(op_class);
+
+  OpTemplate tmpl("Test", op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_type);
@@ -163,15 +159,14 @@ void RenderOptionalAndMandatoryAttributesOp(const TestFunc& tester) {
 }
 
 void RenderTypedInputListOp(const TestFunc& tester) {
-  OpTemplate tmpl("Test");
-
   Type tensor_type = Type::Class("Integer");
   Type op_class =
       Type::Class("TypedInputListOp", "org.tensorflow.op.test")
           .descr(GenerateDoc("class"))
           .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
-  tmpl.OpClass(op_class);
+
+  OpTemplate tmpl("Test", op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(tensor_type);
@@ -189,14 +184,13 @@ void RenderTypedInputListOp(const TestFunc& tester) {
 }
 
 void RenderWildcardInputListOp(const TestFunc& tester) {
-  OpTemplate tmpl("Test");
-
   Type op_class =
       Type::Class("WildcardInputListOp", "org.tensorflow.op.test")
           .descr(GenerateDoc("class"))
           .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
-  tmpl.OpClass(op_class);
+
+  OpTemplate tmpl("Test", op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(Type::Wildcard());
@@ -214,8 +208,6 @@ void RenderWildcardInputListOp(const TestFunc& tester) {
 }
 
 void RenderDeclaredOutputTypeOp(const TestFunc& tester) {
-  OpTemplate tmpl("Test");
-
   Type tensor_type = Type::Generic("T")
       .supertype(Type::Class("Number"));
   Type op_class =
@@ -224,7 +216,8 @@ void RenderDeclaredOutputTypeOp(const TestFunc& tester) {
           .descr(GenerateDoc("class"))
           .annotation(Annotation::Of("Operator", "org.tensorflow.op.annotation")
               .attrs("group = \"test\""));
-  tmpl.OpClass(op_class);
+
+  OpTemplate tmpl("Test", op_class);
 
   Type input_type = Type::Interface("Operand", "org.tensorflow")
       .param(Type::Wildcard());

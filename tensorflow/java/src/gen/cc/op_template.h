@@ -36,7 +36,7 @@ namespace java {
 /// is rendered to the selected destination (a file or, for tests, in memory).
 class OpTemplate {
  public:
-  OpTemplate(const string& op_name);
+  OpTemplate(const string& op_name, const Type& op_class);
   virtual ~OpTemplate() {}
 
   /// \brief Render this template to a file
@@ -46,14 +46,6 @@ class OpTemplate {
 
   /// \brief Render this templte to a memory buffer
   void RenderToBuffer(string* buffer);
-
-  /// \brief Define the operation class to render
-  ///
-  /// Note that no supertype should be set explicitly in the class definition
-  /// since they will (and must be) handle by the template itself.
-  void OpClass(const Type& op_class) {
-    op_class_ = op_class;
-  }
 
   /// \brief Define an input to the operation
   void AddInput(const Variable& input);
@@ -83,7 +75,7 @@ class OpTemplate {
   };
   const string op_name_;
   Type op_class_;
-  std::set<Type> imports_;
+  std::set<Type, Type::Comparator> imports_;
   std::vector<Variable> inputs_;
   std::vector<Variable> attrs_;
   std::vector<Variable> opt_attrs_;
@@ -97,8 +89,7 @@ class OpTemplate {
   void Render(SourceWriter* src_writer);
   void RenderOptionsClass(ClassWriter* op_writer);
   void RenderFactoryMethod(ClassWriter* op_writer);
-  void RenderMethods(ClassWriter* op_writer, RenderMode mode,
-      const Type& single_type);
+  void RenderMethods(ClassWriter* op_writer, RenderMode mode);
   void RenderConstructor(ClassWriter* op_writer);
 };
 

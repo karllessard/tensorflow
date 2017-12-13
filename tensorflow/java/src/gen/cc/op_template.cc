@@ -79,7 +79,8 @@ void WriteSetAttrDirective(const Variable& attr, MethodWriter* writer,
 
 }  // namespace
 
-OpTemplate::OpTemplate(const string& op_name) : op_name_(op_name) {
+OpTemplate::OpTemplate(const string& op_name, const Type& op_class) :
+    op_name_(op_name), op_class_(op_class) {
   imports_.insert({
     Type::Class("Operation", "org.tensorflow"),
     Type::Class("OperationBuilder", "org.tensorflow"),
@@ -102,9 +103,9 @@ void OpTemplate::AddOutput(const Variable& output) {
 }
 
 void OpTemplate::CollectImports(const Type& type) {
-  auto import_scanner = [this](const Type* type) {
-    if (!type->package().empty()) {
-      this->imports_.insert(*type);
+  auto import_scanner = [this](const Type& type) {
+    if (!type.package().empty()) {
+      this->imports_.insert(type);
     }
   };
   ScanForTypes(type, &import_scanner);
@@ -135,12 +136,11 @@ void OpTemplate::Render(SourceWriter* src_writer) {
   // Complete the effective op class to render by selecting supertypes
   Type op_class(op_class_);
   op_class.supertype(Type::Class("PrimitiveOp", "org.tensorflow.op"));
-  Type single_type;
 
   RenderMode mode = DEFAULT;
   if (outputs_.size() == 1) {
       const Variable& output = outputs_.front();
-      single_type = FindOutputTensorType(output.type());
+      Type single_type = FindOutputTensorType(output.type());
       if (single_type.IsWildcard()) {
         single_type = Type::Class("Object");
       }
@@ -169,7 +169,7 @@ void OpTemplate::Render(SourceWriter* src_writer) {
     RenderOptionsClass(op_writer);
   }
   RenderFactoryMethod(op_writer);
-  RenderMethods(op_writer, mode, single_type);
+  RenderMethods(op_writer, mode);
   op_writer->WriteFields(outputs_, PRIVATE);
   RenderConstructor(op_writer);
   op_writer->EndClass();
@@ -248,8 +248,7 @@ void OpTemplate::RenderFactoryMethod(ClassWriter* op_writer) {
   fct_writer->EndMethod();
 }
 
-void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
-    const Type& single_output_type) {
+void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode) {
   std::vector<Variable>::const_iterator var;
 
   // Options setters
@@ -271,13 +270,14 @@ void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
   }
   // Interface methods
   if (mode == SINGLE_OUTPUT) {
+    const Type& output_type = FindOutputTensorType(outputs_.front().type());
     Type return_type = Type::Class("Output", "org.tensorflow")
-        .param(single_output_type);
+        .param(output_type);
     Method as_output = Method::Of("asOutput", return_type)
         .annotation(Annotation::Of("Override"));
     // cast the output if not of the same tensor type
     Variable output = outputs_.front();
-    bool cast = single_output_type != FindOutputTensorType(output.type());
+    bool cast = output_type != FindOutputTensorType(output.type());
     if (cast) {
       as_output.annotation(
           Annotation::Of("SuppressWarnings").attrs("\"unchecked\""));
@@ -291,8 +291,9 @@ void OpTemplate::RenderMethods(ClassWriter* op_writer, RenderMode mode,
     out_writer->EndMethod();
 
   } else if (mode == SINGLE_LIST_OUTPUT) {
-    Type operand = Type::Interface("Operand", "org.tensorflow");
-    operand.param(single_output_type);
+    const Type& output_type = FindOutputTensorType(outputs_.front().type());
+    Type operand = Type::Interface("Operand", "org.tensorflow")
+        .param(output_type);
     Type return_type = Type::Interface("Iterator", "java.util");
     return_type.param(operand);
     Method iterator = Method::Of("iterator", return_type)

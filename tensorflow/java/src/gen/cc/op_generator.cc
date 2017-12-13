@@ -71,7 +71,7 @@ string StringToJavaDoc(const string& descr) {
       newline = false;
     }
   }
-  return jdoc_descr;
+  return jdoc_descr.str();
 }
 
 inline bool IsParamOf(const Type& type, const Type& clazz) {
@@ -106,33 +106,33 @@ Status OpGenerator::Run(const OpList& ops, const string& lib_name,
 Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
     const string& base_package, const string& output_dir) {
   OpTypeResolver type_resolver;
-  OpTemplate tmpl(op.name());
   const string package = base_package + '.' + str_util::Lowercase(op_group);
   Type op_class = Type::Class(op.name(), package);
   op_class.descr(StringToJavaDoc(op.description()));
+  OpTemplate tmpl(op.name(), op_class);
 
   for (const auto& input : op.input_arg()) {
     const string input_name = SnakeToCamelCase(input.name());
-    const ResolvedType type = type_resolver.TypeOf(input, op, true);
+    const TypeInfo type = type_resolver.TypeOf(input, op, true);
     Type input_type = Type::Interface("Operand", "org.tensorflow")
-        .param(type.dt);
+        .param(type.type());
     Variable input_var = Variable::Of(input_name,
-        type.is_list ? Type::IterableOf(input_type) : input_type);
+        type.collection() ? Type::IterableOf(input_type) : input_type);
     input_var.descr(StringToJavaDoc(input.description()));
     tmpl.AddInput(input_var);
   }
   for (const auto& attr : op.attr()) {
-    ResolvedType type = type_resolver.TypeOf(attr);
-    if (!type.is_inferred) {
+    TypeInfo type = type_resolver.TypeOf(attr);
+    if (!type.inferred()) {
       const string attr_name = SnakeToCamelCase(attr.name());
-      if (type.dt.kind() == Type::Kind::GENERIC && !type.is_list) {
+      if (type.type().kind() == Type::Kind::GENERIC && !type.collection()) {
         Variable attr_var = Variable::Of(attr.name(),
-            Type::Class("Class").param(type.dt));
+            Type::Class("Class").param(type.type()));
         attr_var.descr(StringToJavaDoc(attr.description()));
         tmpl.AddTypeAttribute(attr_var);
       } else {
         Variable attr_var = Variable::Of(attr_name,
-          type.is_list ? Type::ListOf(type.dt) : type.dt);
+          type.collection() ? Type::ListOf(type.type()) : type.type());
         attr_var.descr(attr.description());
         tmpl.AddAttribute(attr_var, attr.has_default_value());
       }
@@ -140,18 +140,18 @@ Status OpGenerator::GenerateOp(const OpDef& op, const string& op_group,
   }
   for (const auto& output : op.output_arg()) {
     const string output_name = SnakeToCamelCase(output.name());
-    const ResolvedType type = type_resolver.TypeOf(output, op, false);
+    const TypeInfo type = type_resolver.TypeOf(output, op, false);
     Type output_type = Type::Class("Output", "org.tensorflow")
-        .param(type.dt);
+        .param(type.type());
     Variable output_var = Variable::Of(output_name,
-        type.is_list ? Type::ListOf(output_type) : output_type);
+        type.collection() ? Type::ListOf(output_type) : output_type);
     output_var.descr(output.description());
     tmpl.AddOutput(output_var);
-    if (type.dt.kind() == Type::Kind::GENERIC && !IsParamOf(type.dt, op_class)) {
-      op_class.param(type.dt);
+    if (type.type().kind() == Type::Kind::GENERIC &&
+        !IsParamOf(type.type(), op_class)) {
+      op_class.param(type.type());
     }
   }
-  tmpl.OpClass(op_class);
   tmpl.RenderToFile(output_dir, env);
 
   return Status::OK();

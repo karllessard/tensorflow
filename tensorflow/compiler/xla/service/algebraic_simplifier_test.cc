@@ -761,8 +761,10 @@ TEST_F(AlgebraicSimplifierTest, PowNegative1) {
   ASSERT_TRUE(simplifier.Run(module.get()).ValueOrDie());
 
   HloInstruction* root = computation->root_instruction();
-  EXPECT_THAT(root, op::Divide(op::Constant(), param0));
-  EXPECT_EQ(root->operand(0)->literal().GetFirstElement<float>(), 1);
+  EXPECT_THAT(root, op::Divide(op::Broadcast(), param0));
+  EXPECT_EQ(root->operand(0)->opcode(), HloOpcode::kBroadcast);
+  EXPECT_EQ(root->operand(0)->operand(0)->literal().GetFirstElement<float>(),
+            1);
 }
 
 TEST_F(AlgebraicSimplifierTest, ReshapeBroadcast) {
@@ -1622,8 +1624,11 @@ TEST_F(AlgebraicSimplifierTest, ConvertConvToMatmul) {
     ConvolutionDimensionNumbers dnums;
     std::vector<int64> in_dims;
     int in_channel_idx = -1;
-    dnums.add_spatial_dimensions(-1);  // filled in later
-    dnums.add_spatial_dimensions(-1);  // filled in later
+    // filled in later
+    dnums.add_input_spatial_dimensions(-1);
+    dnums.add_output_spatial_dimensions(-1);
+    dnums.add_input_spatial_dimensions(-1);
+    dnums.add_output_spatial_dimensions(-1);
     for (int i = 0; i < strlen(options.dim_order); ++i) {
       char ch = options.dim_order[i];
       if (ch == 'N') {
@@ -1631,10 +1636,12 @@ TEST_F(AlgebraicSimplifierTest, ConvertConvToMatmul) {
         dnums.set_output_batch_dimension(i);
         in_dims.push_back(options.in_batch);
       } else if (ch == 'H') {
-        dnums.set_spatial_dimensions(0, i);
+        dnums.set_input_spatial_dimensions(0, i);
+        dnums.set_output_spatial_dimensions(0, i);
         in_dims.push_back(options.in_height);
       } else if (ch == 'W') {
-        dnums.set_spatial_dimensions(1, i);
+        dnums.set_input_spatial_dimensions(1, i);
+        dnums.set_output_spatial_dimensions(1, i);
         in_dims.push_back(options.in_width);
       } else if (ch == 'C') {
         dnums.set_input_feature_dimension(i);
@@ -2131,8 +2138,10 @@ TEST_F(AlgebraicSimplifierTest, IteratorInvalidation) {
       builder.AddInstruction(HloInstruction::CreateParameter(0, r1f32, "x"));
   HloInstruction* y =
       builder.AddInstruction(HloInstruction::CreateParameter(1, r1f32, "y"));
-  builder.AddInstruction(
-      HloInstruction::CreateBinary(r1f32, HloOpcode::kDot, x, y));
+  DotDimensionNumbers dot_dnums;
+  dot_dnums.add_lhs_contracting_dimensions(1);
+  dot_dnums.add_rhs_contracting_dimensions(0);
+  builder.AddInstruction(HloInstruction::CreateDot(r1f32, x, y, dot_dnums));
   std::unique_ptr<HloComputation> dot_computation(builder.Build());
 
   HloComputation::Builder call_builder(TestName() + ".Call");
@@ -2228,6 +2237,64 @@ TEST_F(AlgebraicSimplifierTest, TrivialDynamicUpdateSlice) {
   EXPECT_THAT(computation->root_instruction(),
               op::DynamicSlice(op::Parameter(), op::Parameter()));
 }
+
+class DotStrengthReductionTest
+    : public AlgebraicSimplifierTest,
+      public ::testing::WithParamInterface<
+          ::testing::tuple<int, int, int, bool, bool>> {};
+TEST_P(DotStrengthReductionTest, DotStrengthReduction) {
+  int m, k, n;
+  bool transpose_lhs, transpose_rhs;
+  std::tie(m, k, n, transpose_lhs, transpose_rhs) = GetParam();
+
+  Shape dot_shape = ShapeUtil::MakeShape(F32, {m, n});
+  Shape lhs_shape = ShapeUtil::MakeShape(F32, {m, k});
+  Shape transposed_lhs_shape = ShapeUtil::MakeShape(F32, {k, m});
+  Shape rhs_shape = ShapeUtil::MakeShape(F32, {k, n});
+  Shape transposed_rhs_shape = ShapeUtil::MakeShape(F32, {n, k});
+  HloComputation::Builder builder(TestName());
+
+  auto lhs = builder.AddInstruction(HloInstruction::CreateParameter(
+      0, transpose_lhs ? transposed_lhs_shape : lhs_shape, "lhs"));
+  if (transpose_lhs) {
+    lhs = builder.AddInstruction(
+        HloInstruction::CreateTranspose(lhs_shape, lhs, {1, 0}));
+  }
+  auto rhs = builder.AddInstruction(HloInstruction::CreateParameter(
+      1, transpose_rhs ? transposed_rhs_shape : rhs_shape, "rhs"));
+  if (transpose_rhs) {
+    rhs = builder.AddInstruction(
+        HloInstruction::CreateTranspose(rhs_shape, rhs, {1, 0}));
+  }
+  DotDimensionNumbers dot_dnums;
+  dot_dnums.add_lhs_contracting_dimensions(1);
+  dot_dnums.add_rhs_contracting_dimensions(0);
+  builder.AddInstruction(
+      HloInstruction::CreateDot(dot_shape, lhs, rhs, dot_dnums));
+  auto module = CreateNewModule();
+  auto computation = module->AddEntryComputation(builder.Build());
+  AlgebraicSimplifier simplifier(/*is_layout_sensitive=*/false,
+                                 non_bitcasting_callback());
+  TF_ASSERT_OK_AND_ASSIGN(bool changed, simplifier.Run(module.get()));
+  const bool dot_should_be_transformed = m == 1 || k == 1 || n == 1;
+  const bool computation_should_be_modified =
+      dot_should_be_transformed || (transpose_lhs && transpose_rhs);
+  EXPECT_EQ(changed, computation_should_be_modified);
+  bool has_no_dot = true;
+  for (const auto& hlo : computation->instructions()) {
+    if (hlo->opcode() == HloOpcode::kDot) {
+      has_no_dot = false;
+      break;
+    }
+  }
+  EXPECT_EQ(has_no_dot, dot_should_be_transformed);
+}
+
+INSTANTIATE_TEST_CASE_P(
+    DotStrengthReductionTestInstantiation, DotStrengthReductionTest,
+    ::testing::Combine(::testing::Values(1, 2), ::testing::Values(1, 2),
+                       ::testing::Values(1, 2), ::testing::Bool(),
+                       ::testing::Bool()));
 
 }  // namespace
 }  // namespace xla

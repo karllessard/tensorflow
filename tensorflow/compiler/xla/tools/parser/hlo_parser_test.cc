@@ -92,6 +92,28 @@ ENTRY %ConstantF32.v4 () -> f32[] {
 
 )"
 },
+// f32 constant, rank 1 empty array.
+{
+"ConstantF32R1Empty",
+R"(HloModule ConstantF32Empty_module:
+
+ENTRY %ConstantF32Empty.v4 () -> f32[0] {
+  ROOT %constant = f32[0]{0} constant({})
+}
+
+)"
+},
+// f32 constant, rank 4 empty array.
+{
+"ConstantF32R4Empty",
+R"(HloModule ConstantF32R4Empty_module:
+
+ENTRY %ConstantF32R4Empty.v4 () -> f32[2,0,4,3] {
+  ROOT %constant = f32[2,0,4,3]{3,2,1,0} constant(f32[2,0,4,3] { { /*i0=0*/ }, { /*i0=1*/ } })
+}
+
+)"
+},
 // constant 4D
 {
 "Constant4D",
@@ -122,6 +144,17 @@ R"(HloModule ConstantF16_module:
 
 ENTRY %ConstantF16.v4 () -> f16[] {
   ROOT %constant = f16[] constant(500)
+}
+
+)"
+},
+// bf16
+{
+"BF16",
+R"(HloModule BF16:
+
+ENTRY %BF16.v4 () -> bf16[] {
+  ROOT %constant = bf16[] constant(500)
 }
 
 )"
@@ -290,6 +323,25 @@ ENTRY %R4UnitWindow.v3 (operand: f32[13,12,8,15]) -> f32[13,3,8,15] {
 
 )"
 },
+// reduce window on scalar
+{
+"ReduceWindowScalar",
+R"(HloModule reduce_window_scalar:
+
+%add_F32.v3 (lhs: f32[], rhs: f32[]) -> f32[] {
+  %lhs = f32[] parameter(0)
+  %rhs = f32[] parameter(1)
+  ROOT %add = f32[] add(f32[] %lhs, f32[] %rhs)
+}
+
+ENTRY %R4UnitWindowScalar () -> f32[] {
+  %constant = f32[] constant(42)
+  %constant.1 = f32[] constant(1)
+  ROOT %reduce-window = f32[] reduce-window(f32[] %constant, f32[] %constant.1), to_apply=%add_F32.v3
+}
+
+)"
+},
 // convolution
 {
 "Convolution",
@@ -312,7 +364,20 @@ R"(HloModule ConvolveR2_module:
 ENTRY %ConvolveR2.v3 (input: f32[1,2], filter: f32[1,1]) -> f32[1,2] {
   %input = f32[1,2]{1,0} parameter(0)
   %filter = f32[1,1]{1,0} parameter(1)
-  ROOT %convolution = f32[1,2]{0,1} convolution(f32[1,2]{1,0} %input, f32[1,1]{1,0} %filter), window={size=1}, dim_labels=bf_io->bf
+  ROOT %convolution = f32[1,2]{0,1} convolution(f32[1,2]{1,0} %input, f32[1,1]{1,0} %filter), dim_labels=bf_io->bf
+}
+
+)"
+},
+// convolution backward
+{
+"ConvolutionBackward",
+R"(HloModule ConvolveBackward_module:
+
+ENTRY %ConvolveBackward (input: f32[128,7,7,512], filter: f32[3,3,512,512]) -> f32[128,14,14,512] {
+  %input = f32[128,7,7,512]{0,3,2,1} parameter(0)
+  %filter = f32[3,3,512,512]{3,2,1,0} parameter(1)
+  ROOT %convolution-base-dilated = f32[128,14,14,512]{0,3,2,1} convolution(f32[128,7,7,512]{0,3,2,1} %input, f32[3,3,512,512]{3,2,1,0} %filter), window={size=3x3 pad=1_2x1_2 lhs_dilate=2x2 rhs_reversal=1x1}, dim_labels=b01f_01oi->b01f
 }
 
 )"
@@ -402,6 +467,32 @@ ENTRY %R4F32OverlapSmall.v4 () -> f32[4,5,1,1] {
   %constant.1 = f32[2,2,1,1]{3,2,1,0} constant(f32[2,2,1,1] { { /*i0=0*/ { /*i1=0*/ {2} }, { /*i1=1*/ {6} } }, { /*i0=1*/ { /*i1=0*/ {3} }, { /*i1=1*/ {1} } } })
   %constant.2 = f32[] constant(0)
   ROOT %select-and-scatter = f32[4,5,1,1]{3,2,1,0} select-and-scatter(f32[4,5,1,1]{3,2,1,0} %constant, f32[2,2,1,1]{3,2,1,0} %constant.1, f32[] %constant.2), window={size=2x3x1x1 stride=2x2x1x1}, select=%ge_F32.v3, scatter=%add_F32.v3
+}
+
+)"
+},
+// select and scatter on scalar
+{
+"SelectAndScatterScalar",
+R"(HloModule select_and_scatter_scalar:
+
+%ge_F32.v3 (lhs: f32[], rhs: f32[]) -> pred[] {
+  %lhs = f32[] parameter(0)
+  %rhs = f32[] parameter(1)
+  ROOT %greater-than-or-equal-to = pred[] greater-than-or-equal-to(f32[] %lhs, f32[] %rhs)
+}
+
+%add_F32.v3 (lhs.1: f32[], rhs.1: f32[]) -> f32[] {
+  %lhs.1 = f32[] parameter(0)
+  %rhs.1 = f32[] parameter(1)
+  ROOT %add = f32[] add(f32[] %lhs.1, f32[] %rhs.1)
+}
+
+ENTRY %SelectAndScatterScalar () -> f32[] {
+  %constant = f32[] constant(42)
+  %constant.1 = f32[] constant(1)
+  %constant.2 = f32[] constant(2)
+  ROOT %select-and-scatter = f32[] select-and-scatter(f32[] %constant, f32[] %constant.1, f32[] %constant.2), select=%ge_F32.v3, scatter=%add_F32.v3
 }
 
 )"
@@ -588,6 +679,31 @@ ENTRY %InfeedToOutfeed () -> (u32[3], pred[]) {
 }
 
 )"
+},
+// Rng
+{
+"Rng",
+R"(HloModule rng_module:
+
+ENTRY %Rng () -> f32[8] {
+  %constant = f32[] constant(0)
+  %constant.1 = f32[] constant(1)
+  ROOT %rng = f32[8]{0} rng(f32[] %constant, f32[] %constant.1), distribution=rng_uniform
+}
+
+)"
+},
+// Reduce precision
+{
+"ReducePrevison",
+R"(HloModule reduce_precision:
+
+ENTRY %ReducePrecision () -> f32[1] {
+  %constant = f32[1]{0} constant({3.14159})
+  ROOT %reduce-precision = f32[1]{0} reduce-precision(f32[1]{0} %constant), exponent_bits=8, mantissa_bits=10
+}
+
+)"
 }
   });
   // clang-format on
@@ -607,7 +723,7 @@ class HloParserTest : public ::testing::Test,
   void ExpectEqual() {
     const string& original = GetParam().module_string;
     auto result = Parse(original);
-    TF_EXPECT_OK(result.status());
+    TF_ASSERT_OK(result.status());
     EXPECT_EQ(original,
               result.ValueOrDie()->ToString(/*include_large_constants=*/true));
   }
@@ -806,12 +922,6 @@ ENTRY %Convolve1D1Window_0.v3 (input: f32[1,2,1], filter: f32[1,1,1]) -> f32[1,2
                       .status()
                       .error_message(),
                   "must have the same rank");
-
-  ExpectHasSubstr(Parse(StrCat(prefix, ",dim_labels=0bf_io0->b0f", suffix))
-                      .status()
-                      .error_message(),
-                  "output spatial dimensions should be the same as input "
-                  "spatial dimensions");
 }
 
 TEST_F(HloParserTest, UnexpectedAttribute) {

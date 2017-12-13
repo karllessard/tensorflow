@@ -23,12 +23,18 @@ import os
 import random
 import re
 
+import numpy as np
+
 from tensorflow.core.profiler import profile_pb2
 from tensorflow.core.protobuf import config_pb2
 from tensorflow.core.protobuf import rewriter_config_pb2
 from tensorflow.python.client import session
+from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import test_util
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.ops import gradients
 from tensorflow.python.ops import random_ops
 from tensorflow.python.ops import variables
 from tensorflow.python.platform import gfile
@@ -62,7 +68,7 @@ class PrintModelAnalysisTest(test.TestCase):
                          '  ScalarW (1, 1/1 params)\n',
                          f.read())
 
-  def testSelectEverthingDetail(self):
+  def testSelectEverythingDetail(self):
     ops.reset_default_graph()
     dev = '/device:GPU:0' if test.is_gpu_available() else '/device:CPU:0'
     outfile = os.path.join(test.get_temp_dir(), 'dump')
@@ -346,8 +352,8 @@ class PrintModelAnalysisTest(test.TestCase):
       with gfile.Open(outfile, 'r') as f:
         # pylint: disable=line-too-long
         self.assertEqual(
-            'nodename|requestedbytes|peakbytes|residualbytes|outputbytes|totalexecutiontime|acceleratorexecutiontime|cpuexecutiontime|#parameters|opoccurrence(run|defined)|inputshapes\nConst0B(0',
-            f.read().replace('\t', '').replace(' ', '')[0:180])
+            'nodename|requestedbytes|peakbytes|residualbytes|outputbytes|totalexecutiontime|acceleratorexecutiontime|cpuexecutiontime|#parameters|opoccurrence(run|defined)|inputshapes',
+            f.read().replace('\t', '').replace(' ', '')[0:170])
         # pylint: enable=line-too-long
 
       total_children = 0
@@ -693,6 +699,76 @@ class PrintModelAnalysisTest(test.TestCase):
       mat = re.search('(.*)MiB from test_random1/RandomStandardNormal',
                       exception_str)
       self.assertTrue(mat is None)
+
+  def testTrackPersistentBytes(self):
+    ops.reset_default_graph()
+    a = array_ops.constant(np.ones((100, 100)))
+    b = array_ops.constant(np.ones((100, 100)))
+    c = a * b
+
+    with session.Session() as sess:
+      run_options = config_pb2.RunOptions(
+          trace_level=config_pb2.RunOptions.FULL_TRACE)
+      run_metadata = config_pb2.RunMetadata()
+      sess.run(c, options=run_options, run_metadata=run_metadata)
+
+      options = option_builder.ProfileOptionBuilder.time_and_memory()
+      options['min_bytes'] = 0
+      options['select'] = ('bytes', 'peak_bytes', 'output_bytes',
+                           'residual_bytes')
+      ret = model_analyzer.profile(
+          sess.graph, run_meta=run_metadata, cmd='scope', options=options)
+
+      run_metadata = config_pb2.RunMetadata()
+      sess.run(c, options=run_options, run_metadata=run_metadata)
+      ret2 = model_analyzer.profile(
+          sess.graph, run_meta=run_metadata, cmd='scope', options=options)
+
+      n = lib.SearchTFProfNode(ret, 'mul')
+      n2 = lib.SearchTFProfNode(ret2, 'mul')
+      self.assertGreater(n.peak_bytes, 0)
+      self.assertGreater(n.output_bytes, 0)
+      self.assertGreater(n.residual_bytes, 0)
+      self.assertEqual(n.peak_bytes, n2.peak_bytes)
+      self.assertEqual(n.output_bytes, n2.output_bytes)
+      self.assertEqual(n.residual_bytes, n2.residual_bytes)
+
+  def testTraceLoopBytes(self):
+    if not test.is_gpu_available(): return
+    ops.reset_default_graph()
+    steps = 100
+
+    with ops.device('/gpu:0'):
+      x = array_ops.ones((100, 100), dtype=dtypes.float32)
+      n = array_ops.constant(steps, dtype=dtypes.int32)
+      x1 = array_ops.ones((100, 100))
+
+      x *= x1
+      def loop_body(i, x):
+        x *= x
+        return i + 1, x
+
+      _, y = control_flow_ops.while_loop(
+          lambda i, x: i < n, loop_body,
+          [array_ops.constant(0), x])
+
+    grad = gradients.gradients(y, [x1])
+
+    with session.Session() as sess:
+      run_options = config_pb2.RunOptions(
+          trace_level=config_pb2.RunOptions.FULL_TRACE)
+      run_metadata = config_pb2.RunMetadata()
+      sess.run(grad, options=run_options, run_metadata=run_metadata)
+
+      options = option_builder.ProfileOptionBuilder.time_and_memory()
+      options['min_bytes'] = 0
+      options['min_micros'] = 0
+      options['select'] = ('bytes', 'peak_bytes', 'output_bytes',
+                           'residual_bytes')
+      options['output'] = 'none'
+      ret_pb = model_analyzer.profile(
+          sess.graph, run_meta=run_metadata, cmd='scope', options=options)
+      self.assertGreater(ret_pb.total_requested_bytes, 1000000)
 
 
 if __name__ == '__main__':

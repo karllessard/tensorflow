@@ -107,7 +107,7 @@ void OpTemplate::CollectImports(const Type& type) {
       this->imports_.insert(*type);
     }
   };
-  ScanTypes(type, &import_scanner);
+  ScanForTypes(type, &import_scanner);
 }
 
 void OpTemplate::RenderToFile(const string& root_dir, Env* env) {

@@ -156,7 +156,7 @@ SourceStream& SourceStream::operator<<(const Type& type) {
 
 ClassWriter* ClassWriter::Begin(const Type& clazz, int modifiers) {
   GenericTypeScanner generics(&declared_generics_);
-  ScanTypes(clazz, &generics);
+  ScanForTypes(clazz, &generics);
   WriteDoc(clazz.descr(), nullptr, nullptr, src_writer_);
   if (!clazz.annotations().empty()) {
     WriteAnnotationations(clazz.annotations(), src_writer_);
@@ -213,7 +213,7 @@ MethodWriter* ClassWriter::BeginMethod(const Method& method,
 MethodWriter* MethodWriter::Begin(const Method& method,
     int modifiers) {
   GenericTypeScanner generics(&declared_generics_);
-  ScanArgTypes(method, generics);
+  ScanForTypes(method, &generics);
   WriteModifiers(modifiers, src_writer_);
   if (!generics.discoveredTypes().empty()) {
     WriteGenerics(generics.discoveredTypes(), src_writer_);

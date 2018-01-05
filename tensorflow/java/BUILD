@@ -14,6 +14,7 @@ load(
     "tf_copts",
     "tf_custom_op_library",
     "tf_java_test",
+    "tf_cc_tests",
 )
 
 java_library(
@@ -103,28 +104,33 @@ cc_library(
     copts = tf_copts(),
     deps = [
         ":java_op_gen_lib",
-        "//tensorflow/core:framework",
-        "//tensorflow/core:framework_internal",
-        "//tensorflow/core:lib",
     ],
 )
 
 cc_library(
     name = "java_op_gen_lib",
     srcs = [
-        "src/gen/cc/op_generator.cc",
-    ],
-    hdrs = [
         "src/gen/cc/java_defs.h",
+        "src/gen/cc/java_writers.cc",
+        "src/gen/cc/java_writers.h",
+        "src/gen/cc/op_generator.cc",
         "src/gen/cc/op_generator.h",
     ],
     copts = tf_copts(),
+    data = [":java_op_gen_resources"],
     deps = [
         "//tensorflow/core:framework",
         "//tensorflow/core:framework_internal",
         "//tensorflow/core:lib",
         "//tensorflow/core:lib_internal",
     ],
+)
+
+filegroup(
+    name = "java_op_gen_resources",
+    srcs = glob([
+        "src/gen/resources/*",
+    ]),
 )
 
 java_library(
@@ -303,6 +309,21 @@ filegroup(
         "src/test/resources/org/tensorflow/**/*.java",
         "src/main/java/org/tensorflow/op/annotation/Operator.java",
     ]),
+)
+
+tf_cc_tests(
+    name = "java_op_gen_cc_tests",
+    size = "small",
+    srcs = [
+        "src/gen/cc/java_writers_test.cc",
+    ],
+    deps = [
+        ":java_op_gen_lib",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:test",
+        "//tensorflow/core:test_main",
+    ],
 )
 
 filegroup(

@@ -19,11 +19,15 @@ limitations under the License.
 #include <string>
 #include <vector>
 #include <deque>
+#include <set>
 
 #include "tensorflow/core/platform/env.h"
 
 namespace tensorflow {
 namespace java {
+
+/// Path to the directory containing resource files for this generator
+const char kGenResourcePath[] = "tensorflow/java/src/gen/resources/";
 
 // An enumeration of different modifiers commonly used in Java
 enum Modifier {
@@ -46,6 +50,13 @@ class Type {
   enum Kind {
     PRIMITIVE, CLASS, INTERFACE, ENUM, GENERIC, ANNOTATION
   };
+  struct Comparator {
+    bool operator() (const Type& type1, const Type& type2) {
+      return type1.name_ < type2.name_ || type1.package_ < type2.package_;
+    }
+  };
+  typedef std::set<Type, Comparator> Set;
+
   static const Type Byte() {
     return Type(Type::PRIMITIVE, "byte");
   }
@@ -266,6 +277,36 @@ class Snippet {
     TF_CHECK_OK(ReadFileToString(env, fname, &data_));
   }
 };
+
+// Templates implementation
+
+template <typename TypeScanner>
+void ScanForTypes(const Type& type, TypeScanner* scanner) {
+  (*scanner)(type);
+  for (auto it = type.parameters().cbegin(); it != type.parameters().cend();
+      ++it) {
+    ScanForTypes(*it, scanner);
+  }
+  for (auto it = type.annotations().cbegin(); it != type.annotations().cend();
+      ++it) {
+    ScanForTypes(*it, scanner);
+  }
+  for (auto it = type.supertypes().cbegin(); it != type.supertypes().cend();
+      ++it) {
+    ScanForTypes(*it, scanner);
+  }
+}
+
+template <typename TypeScanner>
+void ScanForTypes(const Method& method, TypeScanner* scanner) {
+  if (!method.constructor()) {
+    ScanForTypes(method.return_type(), scanner);
+  }
+  for (std::vector<Variable>::const_iterator arg = method.arguments().cbegin();
+      arg != method.arguments().cend(); ++arg) {
+    ScanForTypes(arg->type(), scanner);
+  }
+}
 
 }  // namespace java
 }  // namespace tensorflow

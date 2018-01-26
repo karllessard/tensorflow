@@ -17,11 +17,14 @@ limitations under the License.
 #define TENSORFLOW_JAVA_SRC_GEN_CC_SOURCE_WRITER_H_
 
 #include <string>
+#include <stack>
 
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/lib/core/stringpiece.h"
+#include "tensorflow/java/src/gen/cc/java_defs.h"
 
 namespace tensorflow {
+namespace java {
 
 // A utility class for writing source code, normally generated at
 // compile-time.
@@ -35,26 +38,8 @@ namespace tensorflow {
 // level.
 class SourceWriter {
  public:
+  SourceWriter();
   virtual ~SourceWriter() = default;
-
-  // Returns true if the writer is at the beginnig of a new line
-  bool newline() const { return newline_; }
-
-  // Appends a piece of code or text.
-  //
-  // It is expected that no newline character is present in the data provided,
-  // otherwise Write() must be used.
-  SourceWriter& Append(const StringPiece& str);
-
-  // Writes a block of code or text.
-  //
-  // The data might potentially contain newline characters, therefore it will
-  // be scanned to ensure that each line is indented and prefixed properly,
-  // making it a bit slower than Append().
-  SourceWriter& Write(const string& text);
-
-  // Appends a newline character and start writing on a new line.
-  SourceWriter& EndLine();
 
   // Indents following lines with white spaces.
   //
@@ -75,18 +60,82 @@ class SourceWriter {
   // Indent(2)->Prefix("//") will result in prefixing lines with "  //".
   //
   // An empty value ("") will remove any line prefix that was previously set.
-  SourceWriter& Prefix(const char* line_prefix) {
-    line_prefix_ = line_prefix;
-    return *this;
-  }
+  SourceWriter& Prefix(const char* line_prefix);
+
+  // Writes a block of code or text.
+  //
+  // The data might potentially contain newline characters, therefore it will
+  // be scanned to ensure that each line is indented and prefixed properly,
+  // making it a bit slower than Append().
+  SourceWriter& Write(const string& text);
+
+  // Appends a piece of code or text.
+  //
+  // It is expected that no newline character is present in the data provided,
+  // otherwise Write() must be used.
+  SourceWriter& Append(const StringPiece& str);
+
+  // Appends the signature of a Java type to the current line.
+  //
+  // The type is written in its simple form (i.e. not prefixed by its package)
+  // and followed by any parameter types it has enclosed in brackets (<>).
+  SourceWriter& Append(const Type& type);
+
+  // Appends a newline character and start writing on a new line.
+  SourceWriter& EndLine();
+
+  SourceWriter& BeginBlock();
+
+  SourceWriter& EndBlock();
+
+  SourceWriter& BeginMethod(const Method& method, int modifiers = 0);
+
+  SourceWriter& EndMethod();
+
+  SourceWriter& BeginClass(const Type& clazz,
+      const std::vector<Type>* dependencies, int modifiers = 0);
+
+  SourceWriter& BeginClass(const Type& clazz, int modifiers = 0);
+
+  SourceWriter& WriteFields(const std::vector<Variable>& fields,
+      int modifiers = 0);
+
+  SourceWriter& EndClass();
 
  protected:
   virtual void DoAppend(const StringPiece& str) = 0;
 
  private:
+  class GenericNamespace {
+   public:
+    GenericNamespace() = default;
+    explicit GenericNamespace(const GenericNamespace* parent)
+      : generic_names_(parent->generic_names_) {}
+
+    std::vector<const Type*> declared_types() {
+      return declared_types_;
+    }
+    void operator()(const Type& type); // type visitor
+
+   private:
+    std::vector<const Type*> declared_types_;
+    std::set<string> generic_names_;
+  };
+
   string left_margin_;
   string line_prefix_;
   bool newline_ = true;
+  std::stack<GenericNamespace*> generic_namespaces_;
+
+  SourceWriter& WriteModifiers(int modifiers);
+  SourceWriter& WriteDoc(const string& description,
+    const string& return_description = "",
+    const std::vector<Variable>* parameters = nullptr);
+  SourceWriter& WriteAnnotations(const std::vector<Annotation>& annotations);
+  SourceWriter& WriteGenerics(const std::vector<const Type*>& generics);
+
+  GenericNamespace* PushGenericNamespace(int modifiers);
+  void PopGenericNamespace();
 };
 
 // A writer that outputs source code into a file.
@@ -128,6 +177,7 @@ class SourceBufferWriter : public SourceWriter {
   string* buffer_;
 };
 
+}  // namespace java
 }  // namespace tensorflow
 
 #endif  // TENSORFLOW_JAVA_SRC_GEN_CC_SOURCE_WRITER_H_

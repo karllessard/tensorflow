@@ -177,11 +177,11 @@ public final class Graph implements AutoCloseable {
 
     try (Reference ref = ref()) {
       for (int i = 0; i < y.length; ++i) {
-        yHandles[i] = y[i].op().getUnsafeNativeHandle();
+        yHandles[i] = y[i].getUnsafeNativeHandle();
         yIndices[i] = y[i].index();
       }
       for (int i = 0; i < x.length; ++i) {
-        xHandles[i] = x[i].op().getUnsafeNativeHandle();
+        xHandles[i] = x[i].getUnsafeNativeHandle();
         xIndices[i] = x[i].index();
       }
       if (dx != null && dx.length > 0) {
@@ -189,7 +189,7 @@ public final class Graph implements AutoCloseable {
         dxIndices = new int[dx.length];
 
         for (int i = 0; i < dx.length; ++i) {
-          dxHandles[i] = dx[i].op().getUnsafeNativeHandle();
+          dxHandles[i] = dx[i].getUnsafeNativeHandle();
           dxIndices[i] = dx[i].index();
         }
       }

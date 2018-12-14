@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.HashSet;
 import java.util.Iterator;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -83,9 +84,9 @@ public class GraphTest {
       assertFalse(iterator.hasNext());
 
       operations = new HashSet<>();
-      operations.add(TestUtil.constant(g, "Const-A", Float.valueOf(1.0f)).op());
-      operations.add(TestUtil.constant(g, "Const-B", Integer.valueOf(23)).op());
-      operations.add(TestUtil.constant(g, "Const-C", Double.valueOf(1.618)).op());
+      operations.add(TestUtil.constantOp(g, "Const-A", Float.valueOf(1.0f)));
+      operations.add(TestUtil.constantOp(g, "Const-B", Integer.valueOf(23)));
+      operations.add(TestUtil.constantOp(g, "Const-C", Double.valueOf(1.618)));
 
       iterator = g.operations();
 

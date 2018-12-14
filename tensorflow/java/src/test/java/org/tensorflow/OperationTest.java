@@ -24,6 +24,7 @@ import static org.junit.Assert.fail;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,8 +56,8 @@ public class OperationTest {
   public void operationEquality() {
     Operation op1;
     try (Graph g = new Graph()) {
-      op1 = TestUtil.constant(g, "op1", 1).op();
-      Operation op2 = TestUtil.constant(g, "op2", 2).op();
+      op1 = TestUtil.constantOp(g, "op1", 1);
+      Operation op2 = TestUtil.constantOp(g, "op2", 2);
       Operation op3 = new Operation(g, op1.getUnsafeNativeHandle());
       Operation op4 = g.operation("op1");
       assertEquals(op1, op1);
@@ -70,7 +71,7 @@ public class OperationTest {
       assertNotEquals(op2, op4);
     }
     try (Graph g = new Graph()) {
-      Operation newOp1 = TestUtil.constant(g, "op1", 1).op();
+      Operation newOp1 = TestUtil.constantOp(g, "op1", 1);
       assertNotEquals(op1, newOp1);
     }
   }
@@ -78,8 +79,8 @@ public class OperationTest {
   @Test
   public void operationCollection() {
     try (Graph g = new Graph()) {
-      Operation op1 = TestUtil.constant(g, "op1", 1).op();
-      Operation op2 = TestUtil.constant(g, "op2", 2).op();
+      Operation op1 = TestUtil.constantOp(g, "op1", 1);
+      Operation op2 = TestUtil.constantOp(g, "op2", 2);
       Operation op3 = new Operation(g, op1.getUnsafeNativeHandle());
       Operation op4 = g.operation("op1");
       Set<Operation> ops = new HashSet<>();
@@ -95,7 +96,7 @@ public class OperationTest {
   @Test
   public void operationToString() {
     try (Graph g = new Graph()) {
-      Operation op = TestUtil.constant(g, "c", new int[] {1}).op();
+      Operation op = TestUtil.constantOp(g, "c", new int[] {1});
       assertNotNull(op.toString());
     }
   }

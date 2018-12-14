@@ -18,6 +18,8 @@ package org.tensorflow;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.tensorflow.op.NativeOperation;
+
 /**
  * Driver for {@link Graph} execution.
  *
@@ -223,7 +225,13 @@ public final class Session implements AutoCloseable {
      * Make {@link #run()} execute {@code operand}, but not return any evaluated {@link Tensor}s.
      */
     public Runner addTarget(Operand<?> operand) {
-      return addTarget(operand.asOutput().op());
+      NativeOperation op = operand.asOutput().op();
+      if (!(op instanceof Operation)) {
+        throw new IllegalArgumentException("Operation of type '" + op.getClass().getName()
+            + "' are not supported in graph sessions");
+      }
+      targets.add((Operation) op);
+      return this;
     }
 
     /**
@@ -293,13 +301,13 @@ public final class Session implements AutoCloseable {
       }
       idx = 0;
       for (Output<?> o : inputs) {
-        inputOpHandles[idx] = o.op().getUnsafeNativeHandle();
+        inputOpHandles[idx] = o.getUnsafeNativeHandle();
         inputOpIndices[idx] = o.index();
         idx++;
       }
       idx = 0;
       for (Output<?> o : outputs) {
-        outputOpHandles[idx] = o.op().getUnsafeNativeHandle();
+        outputOpHandles[idx] = o.getUnsafeNativeHandle();
         outputOpIndices[idx] = o.index();
         idx++;
       }

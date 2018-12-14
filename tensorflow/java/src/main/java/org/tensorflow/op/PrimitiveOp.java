@@ -52,14 +52,14 @@ public abstract class PrimitiveOp implements Op {
    * Underlying operation. It is deliberately not exposed by a getter method to avoid any name
    * conflict with generated methods of the subclasses.
    */
-  protected final Operation operation;
+  protected final NativeOperation operation;
 
   /**
    * Constructor.
    *
    * @param operation the underlying operation
    */
-  protected PrimitiveOp(Operation operation) {
+  protected PrimitiveOp(NativeOperation operation) {
     this.operation = operation;
   }
 }

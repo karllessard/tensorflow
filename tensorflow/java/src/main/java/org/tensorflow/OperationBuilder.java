@@ -17,6 +17,8 @@ package org.tensorflow;
 
 import java.nio.charset.Charset;
 
+import org.tensorflow.op.NativeOperationBuilder;
+
 /**
  * A builder for {@link Operation}s in a {@link Graph}.
  *
@@ -35,7 +37,7 @@ import java.nio.charset.Charset;
  * }
  * }</pre>
  */
-public final class OperationBuilder {
+public final class OperationBuilder implements NativeOperationBuilder {
 
   OperationBuilder(Graph graph, String type, String name) {
     this.graph = graph;
@@ -47,11 +49,7 @@ public final class OperationBuilder {
     }
   }
 
-  /**
-   * Add the {@link Operation} being built to the {@link Graph}.
-   *
-   * <p>The OperationBuilder is not usable after build() returns.
-   */
+  @Override
   public Operation build() {
     Graph.Reference r = graph.ref();
     try {
@@ -63,19 +61,11 @@ public final class OperationBuilder {
     }
   }
 
-  /**
-   * Returns the builder to create an operation.
-   *
-   * <p>Inputs to TensorFlow operations are outputs of another TensorFlow operation. This method is
-   * used to add a input to a {@link OperationBuilder}.
-   *
-   * @param input {@link Output} supposed to be the input of the OperationBuilder.
-   * @return the OperationBuilder instance for chaining.
-   */
+  @Override
   public OperationBuilder addInput(Output<?> input) {
     Graph.Reference r = graph.ref();
     try {
-      addInput(unsafeNativeHandle, input.op().getUnsafeNativeHandle(), input.index());
+      addInput(unsafeNativeHandle, input.getUnsafeNativeHandle(), input.index());
     } finally {
       r.close();
     }
@@ -105,13 +95,14 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder addInputList(Output<?>[] inputs) {
     Graph.Reference r = graph.ref();
     try {
       long[] opHandles = new long[inputs.length];
       int[] indices = new int[inputs.length];
       for (int i = 0; i < inputs.length; ++i) {
-        opHandles[i] = inputs[i].op().getUnsafeNativeHandle();
+        opHandles[i] = inputs[i].getUnsafeNativeHandle();
         indices[i] = inputs[i].index();
       }
       addInputList(unsafeNativeHandle, opHandles, indices);
@@ -121,6 +112,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setDevice(String device) {
     Graph.Reference r = graph.ref();
     try {
@@ -131,11 +123,13 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, String value) {
     setAttr(name, value.getBytes(Charset.forName("UTF-8")));
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, byte[] value) {
     Graph.Reference r = graph.ref();
     try {
@@ -146,6 +140,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, long value) {
     Graph.Reference r = graph.ref();
     try {
@@ -156,6 +151,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, long[] value) {
     Graph.Reference r = graph.ref();
     try {
@@ -166,6 +162,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, float value) {
     Graph.Reference r = graph.ref();
     try {
@@ -176,6 +173,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, float[] value) {
     Graph.Reference r = graph.ref();
     try {
@@ -186,6 +184,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, boolean value) {
     Graph.Reference r = graph.ref();
     try {
@@ -196,6 +195,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, boolean[] value) {
     Graph.Reference r = graph.ref();
     try {
@@ -206,6 +206,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, DataType value) {
     Graph.Reference r = graph.ref();
     try {
@@ -216,6 +217,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, DataType[] value) {
     int[] ctypes = new int[value.length];
     for (int i = 0; i < value.length; ++i) {
@@ -230,6 +232,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, Tensor<?> value) {
     Graph.Reference r = graph.ref();
     try {
@@ -240,6 +243,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, Tensor<?>[] value) {
     long[] handles = new long[value.length];
     int idx = 0;
@@ -255,6 +259,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, Shape value) {
     Graph.Reference r = graph.ref();
     try {
@@ -265,6 +270,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, Shape[] value) {
     int[] numDimensions = new int[value.length];
     int totalNumDimensions = 0;
@@ -295,6 +301,7 @@ public final class OperationBuilder {
     return this;
   }
 
+  @Override
   public OperationBuilder setAttr(String name, String[] value) {
     Charset utf8 = Charset.forName("UTF-8");
     Object[] objects = new Object[value.length];

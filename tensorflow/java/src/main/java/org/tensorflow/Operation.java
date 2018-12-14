@@ -27,77 +27,57 @@ package org.tensorflow;
  *
  * <p>Operation instances are immutable and thread-safe.
  */
-public final class Operation {
+public final class Operation extends AbstractOperation {
 
   // Create an Operation instance referring to an operation in g, with the given handle to the C
   // TF_Operation object.  The handle is valid only as long as g has not been closed, hence it is
   // called unsafeHandle.  Graph.ref() is used to safely use the unsafeHandle.
   Operation(Graph g, long unsafeNativeHandle) {
+    super(unsafeNativeHandle);
     this.graph = g;
-    this.unsafeNativeHandle = unsafeNativeHandle;
   }
 
-  /** Returns the full name of the Operation. */
+  @Override
   public String name() {
     Graph.Reference r = graph.ref();
     try {
-      return name(unsafeNativeHandle);
+      return name(getUnsafeNativeHandle());
     } finally {
       r.close();
     }
   }
 
-  /**
-   * Returns the type of the operation, i.e., the name of the computation performed by the
-   * operation.
-   */
+  @Override
   public String type() {
     Graph.Reference r = graph.ref();
     try {
-      return type(unsafeNativeHandle);
+      return type(getUnsafeNativeHandle());
     } finally {
       r.close();
     }
   }
 
-  /** Returns the number of tensors produced by this operation. */
+  @Override
   public int numOutputs() {
     Graph.Reference r = graph.ref();
     try {
-      return numOutputs(unsafeNativeHandle);
+      return numOutputs(getUnsafeNativeHandle());
     } finally {
       r.close();
     }
   }
 
-  /**
-   * Returns the size of the list of Tensors produced by this operation.
-   *
-   * <p>An Operation has multiple named outputs, each of which produces either a single tensor or a
-   * list of tensors. This method returns the size of the list of tensors for a specific named
-   * output of the operation.
-   *
-   * @param name identifier of the list of tensors (of which there may be many) produced by this
-   *     operation.
-   * @return the size of the list of Tensors produced by this named output.
-   * @throws IllegalArgumentException if this operation has no output with the provided name.
-   */
+  @Override
   public int outputListLength(final String name) {
     Graph.Reference r = graph.ref();
     try {
-      return outputListLength(unsafeNativeHandle, name);
+      return outputListLength(getUnsafeNativeHandle(), name);
     } finally {
       r.close();
     }
   }
 
-  /**
-   * Returns symbolic handles to a list of tensors produced by this operation.
-   *
-   * @param idx index of the first tensor of the list
-   * @param length number of tensors in the list
-   * @return array of {@code Output}
-   */
+  @Override
   public Output<?>[] outputList(int idx, int length) {
     Output<?>[] outputs = new Output<?>[length];
     for (int i = 0; i < length; ++i) {
@@ -106,16 +86,7 @@ public final class Operation {
     return outputs;
   }
 
-  /**
-   * Returns a symbolic handle to one of the tensors produced by this operation.
-   *
-   * <p>Warning: Does not check that the type of the tensor matches T. It is recommended to call
-   * this method with an explicit type parameter rather than letting it be inferred, e.g. {@code
-   * operation.<Integer>output(0)}
-   *
-   * @param <T> The expected element type of the tensors produced by this output.
-   * @param idx The index of the output among the outputs produced by this operation.
-   */
+  @Override
   @SuppressWarnings({"rawtypes", "unchecked"})
   public <T> Output<T> output(int idx) {
     return new Output(this, idx);
@@ -123,7 +94,7 @@ public final class Operation {
 
   @Override
   public int hashCode() {
-    return Long.valueOf(unsafeNativeHandle).hashCode();
+    return Long.valueOf(getUnsafeNativeHandle()).hashCode();
   }
 
   @Override
@@ -144,7 +115,7 @@ public final class Operation {
     // in both objects.
     Graph.Reference r = graph.ref();
     try {
-      return unsafeNativeHandle == that.unsafeNativeHandle;
+      return getUnsafeNativeHandle() == that.getUnsafeNativeHandle();
     } finally {
       r.close();
     }
@@ -155,52 +126,40 @@ public final class Operation {
     return String.format("<%s '%s'>", type(), name());
   }
 
-  /**
-   * Returns the size of the given inputs list of Tensors for this operation.
-   *
-   * <p>An Operation has multiple named inputs, each of which contains either a single tensor or a
-   * list of tensors. This method returns the size of the list of tensors for a specific named input
-   * of the operation.
-   *
-   * @param name identifier of the list of tensors (of which there may be many) inputs to this
-   *     operation.
-   * @return the size of the list of Tensors produced by this named input.
-   * @throws IllegalArgumentException if this operation has no input with the provided name.
-   */
+  @Override
   public int inputListLength(final String name) {
     Graph.Reference r = graph.ref();
     try {
-      return inputListLength(unsafeNativeHandle, name);
+      return inputListLength(getUnsafeNativeHandle(), name);
     } finally {
       r.close();
     }
   }
 
-  long getUnsafeNativeHandle() {
-    return unsafeNativeHandle;
-  }
-
-  // Package private, meant primarily for the public Output.shape() method.
+  @Override
   long[] shape(int output) {
     Graph.Reference r = graph.ref();
     try {
-      return shape(r.nativeHandle(), unsafeNativeHandle, output);
+      return shape(r.nativeHandle(), getUnsafeNativeHandle(), output);
     } finally {
       r.close();
     }
   }
 
-  // Package private, meant primarily for the public Output.dataType() method.
+  @Override
   DataType dtype(int output) {
     Graph.Reference r = graph.ref();
     try {
-      return DataType.fromC(dtype(r.nativeHandle(), unsafeNativeHandle, output));
+      return DataType.fromC(dtype(r.nativeHandle(), getUnsafeNativeHandle(), output));
     } finally {
       r.close();
     }
   }
 
-  private final long unsafeNativeHandle;
+  @Override
+  long getUnsafeNativeHandle(int outputIdx) {
+    return getUnsafeNativeHandle();
+  }
 
   private final Graph graph;
 

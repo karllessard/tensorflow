@@ -17,6 +17,8 @@ package org.tensorflow;
 
 import java.util.Objects;
 
+import org.tensorflow.op.NativeOperation;
+
 /**
  * A symbolic handle to a tensor produced by an {@link Operation}.
  *
@@ -35,7 +37,7 @@ public final class Output<T> implements Operand<T> {
   }
 
   /** Returns the Operation that will produce the tensor referred to by this Output. */
-  public Operation op() {
+  public NativeOperation op() {
     return operation;
   }
 
@@ -82,7 +84,27 @@ public final class Output<T> implements Operand<T> {
         "<%s '%s:%d' shape=%s dtype=%s>",
         operation.type(), operation.name(), index, shape().toString(), dataType());
   }
+  
+  /** Handle to the idx-th output of the Operation {@code op}. */
+  Output(AbstractOperation op, int idx) {
+    operation = op;
+    index = idx;
+  }
 
-  private final Operation operation;
+  /** 
+   * Returns the native handle of this output.
+   * 
+   * <p>The nature of this return value varies depending on the execution mode of the operation.
+   * <ul>
+   * <ul><li>In eager mode, the native handle of the tensor exposed by this output is returned.</li>
+   * <li>In graph mode, the native handle of the operation itself is returned (in such case, 
+   * the output index also needs to be provided with the handle to the native layer)</li>
+   * </ul>
+   */
+  long getUnsafeNativeHandle() {
+    return operation.getUnsafeNativeHandle(index);
+  }
+  
+  private final AbstractOperation operation;
   private final int index;
 }

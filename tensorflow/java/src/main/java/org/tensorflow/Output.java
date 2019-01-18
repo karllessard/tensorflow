@@ -48,6 +48,21 @@ public final class Output<T> implements Operand<T> {
     return operation.dtype(index);
   }
 
+ /**
+   * Returns the tensor at this output.
+   * 
+   * <p>Only operations executed eagerly can return directly the tensor of their outputs. If the operation
+   * was added as a node to a graph, the tensor should be fetched by running a session, as in
+   * {@link Session.Runner#fetch(Output)}).
+   * 
+   * @param outputIdx index of the output of this operation
+   * @return output tensor
+   */
+  @SuppressWarnings("unchecked")
+  public Tensor<T> tensor() {
+    return (Tensor<T>) operation.tensor(index);
+  }
+
   @Override
   public Output<T> asOutput() {
     return this;

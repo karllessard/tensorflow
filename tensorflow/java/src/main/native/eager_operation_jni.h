@@ -70,14 +70,6 @@ JNIEXPORT jint JNICALL Java_org_tensorflow_EagerOperation_numDims(
 JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerOperation_dim(
     JNIEnv *, jclass, jlong, jint);
 
-/**
- * Class:     org_tensorflow_EagerOperation
- * Method:    numElements
- * Signature: (J)J
- */
-JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerOperation_numElements(
-    JNIEnv *, jclass, jlong);
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

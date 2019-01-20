@@ -113,16 +113,3 @@ JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerOperation_dim(
   TF_DeleteStatus(status);
   return static_cast<jlong>(dim);
 }
-
-JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerOperation_numElements(
-    JNIEnv* env, jclass clazz, jlong handle) {
-  TFE_TensorHandle* tensor_handle = requireTensorHandle(env, handle);
-  TF_Status* status = TF_NewStatus();
-  int64_t num_elements = TFE_TensorHandleNumElements(tensor_handle, status);
-  if (!throwExceptionIfNotOK(env, status)) {
-    TF_DeleteStatus(status);
-    return 0;
-  }
-  TF_DeleteStatus(status);
-  return static_cast<jlong>(num_elements);
-}

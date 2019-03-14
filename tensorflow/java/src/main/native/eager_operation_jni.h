@@ -48,6 +48,22 @@ JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerOperation_resolveTensorHandle(
 
 /**
  * Class:     org_tensorflow_EagerOperation
+ * Method:    outputListLength
+ * Signature: (JLjava/lang/String;)I
+ */
+JNIEXPORT jint JNICALL Java_org_tensorflow_EagerOperation_outputListLength(
+    JNIEnv *, jclass, jlong, jstring);
+
+/**
+ * Class:     org_tensorflow_EagerOperation
+ * Method:    inputListLength
+ * Signature: (JLjava/lang/String;)I
+ */
+JNIEXPORT jint JNICALL Java_org_tensorflow_EagerOperation_inputListLength(
+    JNIEnv *, jclass, jlong, jstring);
+
+/**
+ * Class:     org_tensorflow_EagerOperation
  * Method:    dataType
  * Signature: (J)I
  */

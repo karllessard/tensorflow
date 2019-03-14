@@ -17,16 +17,17 @@ package org.tensorflow;
 
 final class EagerOperation extends AbstractOperation implements AutoCloseable {
   
-  EagerOperation(Tensor<?> outputTensor, String type, String name) {
-    this(new long[] { allocateTensorHandle(outputTensor.getNativeHandle()) }, type, name);
-    outputTensors[0] = outputTensor;
-  }
-
-  EagerOperation(long[] outputNativeHandles, String type, String name) {
+  EagerOperation(long nativeHandle, long[] outputNativeHandles, String type, String name) {
+    this.nativeHandle = nativeHandle;
     this.outputNativeHandles = outputNativeHandles;
     this.outputTensors = new Tensor<?>[outputNativeHandles.length];
     this.type = type;
     this.name = name;
+  }
+
+  EagerOperation(Tensor<?> outputTensor, String type, String name) {
+    this(0L, new long[] { allocateTensorHandle(outputTensor.getNativeHandle()) }, type, name);
+    outputTensors[0] = outputTensor;
   }
 
   @Override
@@ -46,18 +47,12 @@ final class EagerOperation extends AbstractOperation implements AutoCloseable {
 
   @Override
   public int outputListLength(final String name) {
-    long outputNativeHandle = outputNativeHandles[outputIndex];
-    long[] shape = new long[numDims(outputNativeHandle)];
-    for (int i = 0; i < shape.length; ++i) {
-      shape[i] = dim(outputNativeHandle, i);
-    }
-    return shape;
-    return 0; // TODO
+    return outputListLength(nativeHandle, name);
   }
 
   @Override
   public int inputListLength(final String name) {
-    return 0; // TODO
+    return inputListLength(nativeHandle, name);
   }
 
   @Override
@@ -110,6 +105,7 @@ final class EagerOperation extends AbstractOperation implements AutoCloseable {
     }
   }
 
+  private final long nativeHandle;
   private final long[] outputNativeHandles;  // all values are set
   private final Tensor<?>[] outputTensors;  // some values might be null 
   private final String type;
@@ -120,6 +116,10 @@ final class EagerOperation extends AbstractOperation implements AutoCloseable {
   private static native void deleteTensorHandle(long handle);
 
   private static native long resolveTensorHandle(long handle);
+  
+  private static native int outputListLength(long handle, String name);
+
+  private static native int inputListLength(long handle, String name);
 
   private static native int dataType(long handle);
 

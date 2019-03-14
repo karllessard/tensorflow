@@ -25,6 +25,15 @@ limitations under the License.
 
 namespace {
 
+TFE_Op* requireOpHandle(JNIEnv* env, jlong handle) {
+  if (handle == 0) {
+    throwException(env, kNullPointerException,
+                   "No native operation available");
+    return nullptr;
+  }
+  return reinterpret_cast<TFE_Op*>(handle);
+}
+
 TFE_TensorHandle* requireTensorHandle(JNIEnv* env, jlong handle) {
   if (handle == 0) {
     throwException(env, kNullPointerException,
@@ -79,6 +88,36 @@ JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerOperation_resolveTensorHandle(
   static_assert(sizeof(jlong) >= sizeof(TF_Tensor*),
                 "Cannot represent a C TF_Tensor as a Java long");
   return reinterpret_cast<jlong>(tensor);
+}
+
+JNIEXPORT jint JNICALL Java_org_tensorflow_EagerOperation_outputListLength(
+    JNIEnv* env, jclass clazz, jlong handle, jstring name) {
+  TFE_Op* op = requireOpHandle(env, handle);
+  TF_Status* status = TF_NewStatus();
+  const char* cname = env->GetStringUTFChars(name, nullptr);
+  int length = TFE_OpGetOutputLength(op, cname, status);
+  env->ReleaseStringUTFChars(name, cname);
+  if (!throwExceptionIfNotOK(env, status)) {
+    TF_DeleteStatus(status);
+    return 0;
+  }
+  TF_DeleteStatus(status);
+  return static_cast<jint>(length);
+}
+
+JNIEXPORT jint JNICALL Java_org_tensorflow_EagerOperation_inputListLength(
+    JNIEnv* env, jclass clazz, jlong handle, jstring name) {
+  TFE_Op* op = requireOpHandle(env, handle);
+  TF_Status* status = TF_NewStatus();
+  const char* cname = env->GetStringUTFChars(name, nullptr);
+  int length = TFE_OpGetInputLength(op, cname, status);
+  env->ReleaseStringUTFChars(name, cname);
+  if (!throwExceptionIfNotOK(env, status)) {
+    TF_DeleteStatus(status);
+    return 0;
+  }
+  TF_DeleteStatus(status);
+  return static_cast<jint>(length);
 }
 
 JNIEXPORT jint JNICALL Java_org_tensorflow_EagerOperation_dataType(

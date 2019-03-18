@@ -113,8 +113,9 @@ class EagerOperation extends AbstractOperation implements Closeable {
   @Override
   public void close() {
     // First mark the operation native handle as null so we can return clean exceptions in case other methods
-    // are being called by other threads while we are closing this operation.
-    long tmpNativeHandle = nativeHandle;
+    // are being called by other threads while we are closing this operation (good practice is to prevent
+    // this to happen on the application side).
+    long tmpNativeHandle = getNativeHandle();
     nativeHandle = 0L;
     delete(tmpNativeHandle);
 

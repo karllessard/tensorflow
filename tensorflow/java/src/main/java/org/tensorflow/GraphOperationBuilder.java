@@ -67,7 +67,7 @@ public final class GraphOperationBuilder implements OperationBuilder {
   public GraphOperationBuilder addInput(Output<?> input) {
     Graph.Reference r = graph.ref();
     try {
-      addInput(unsafeNativeHandle, input.getUnsafeNativeHandle(), input.index());
+      addInput(unsafeNativeHandle, input.getNativeHandle(), input.index());
     } finally {
       r.close();
     }
@@ -81,7 +81,7 @@ public final class GraphOperationBuilder implements OperationBuilder {
       long[] opHandles = new long[inputs.length];
       int[] indices = new int[inputs.length];
       for (int i = 0; i < inputs.length; ++i) {
-        opHandles[i] = inputs[i].getUnsafeNativeHandle();
+        opHandles[i] = inputs[i].getNativeHandle();
         indices[i] = inputs[i].index();
       }
       addInputList(unsafeNativeHandle, opHandles, indices);

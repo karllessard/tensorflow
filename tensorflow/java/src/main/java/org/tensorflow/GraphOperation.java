@@ -129,7 +129,7 @@ public final class GraphOperation extends AbstractOperation {
   }
   
   @Override
-  long getUnsafeNativeHandle(int outputIdx) {
+  long getNativeHandle(int outputIdx) {
     return getUnsafeNativeHandle();
   }
 

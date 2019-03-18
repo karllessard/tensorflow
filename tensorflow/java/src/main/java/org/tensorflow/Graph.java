@@ -178,11 +178,11 @@ public final class Graph implements ExecutionEnvironment, AutoCloseable {
 
     try (Reference ref = ref()) {
       for (int i = 0; i < y.length; ++i) {
-        yHandles[i] = y[i].getUnsafeNativeHandle();
+        yHandles[i] = y[i].getNativeHandle();
         yIndices[i] = y[i].index();
       }
       for (int i = 0; i < x.length; ++i) {
-        xHandles[i] = x[i].getUnsafeNativeHandle();
+        xHandles[i] = x[i].getNativeHandle();
         xIndices[i] = x[i].index();
       }
       if (dx != null && dx.length > 0) {
@@ -190,7 +190,7 @@ public final class Graph implements ExecutionEnvironment, AutoCloseable {
         dxIndices = new int[dx.length];
 
         for (int i = 0; i < dx.length; ++i) {
-          dxHandles[i] = dx[i].getUnsafeNativeHandle();
+          dxHandles[i] = dx[i].getNativeHandle();
           dxIndices[i] = dx[i].index();
         }
       }
@@ -299,7 +299,7 @@ public final class Graph implements ExecutionEnvironment, AutoCloseable {
         subgraphBuilder.buildSubgraph(subgraph, inputs, outputs);
 
         for (int i = 0, j = noutputs; i < noutputs; i++, j++) {
-          outputHandlesAndIndices[i] = outputs[i].getUnsafeNativeHandle();
+          outputHandlesAndIndices[i] = outputs[i].getNativeHandle();
           outputHandlesAndIndices[j] = (long) outputs[i].index();
         }
       }
@@ -330,7 +330,7 @@ public final class Graph implements ExecutionEnvironment, AutoCloseable {
       try (Reference ref = ref()) {
 
         for (int i = 0; i < ninputs; i++) {
-          inputHandles[i] = inputs[i].getUnsafeNativeHandle();
+          inputHandles[i] = inputs[i].getNativeHandle();
           inputIndices[i] = inputs[i].index();
         }
 

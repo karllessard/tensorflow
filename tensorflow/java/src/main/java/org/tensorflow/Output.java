@@ -83,8 +83,8 @@ public final class Output<T> implements Operand<T> {
     index = idx;
   }
 
-  long getUnsafeNativeHandle() {
-    return operation.getUnsafeNativeHandle(index);
+  long getNativeHandle() {
+    return operation.getNativeHandle(index);
   }
   
   private final AbstractOperation operation;

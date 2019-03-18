@@ -299,13 +299,13 @@ public final class Session implements AutoCloseable {
       }
       idx = 0;
       for (Output<?> o : inputs) {
-        inputOpHandles[idx] = o.getUnsafeNativeHandle();
+        inputOpHandles[idx] = o.getNativeHandle();
         inputOpIndices[idx] = o.index();
         idx++;
       }
       idx = 0;
       for (Output<?> o : outputs) {
-        outputOpHandles[idx] = o.getUnsafeNativeHandle();
+        outputOpHandles[idx] = o.getNativeHandle();
         outputOpIndices[idx] = o.index();
         idx++;
       }

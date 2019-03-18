@@ -32,14 +32,6 @@ JNIEXPORT void JNICALL Java_org_tensorflow_EagerOperation_delete(
 
 /*
  * Class:     org_tensorflow_EagerOperation
- * Method:    allocateTensorHandle
- * Signature: (J)J
- */
-JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerOperation_allocateTensorHandle(
-    JNIEnv *, jclass, jlong);
-
-/*
- * Class:     org_tensorflow_EagerOperation
  * Method:    deleteTensorHandle
  * Signature: (J)V
  */

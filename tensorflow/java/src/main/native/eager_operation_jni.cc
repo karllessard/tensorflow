@@ -43,36 +43,12 @@ TFE_TensorHandle* requireTensorHandle(JNIEnv* env, jlong handle) {
   return reinterpret_cast<TFE_TensorHandle*>(handle);
 }
 
-TF_Tensor* requireTensor(JNIEnv* env, jlong handle) {
-  if (handle == 0) {
-    throwException(env, kNullPointerException,
-                   "close() was called on the Tensor");
-    return nullptr;
-  }
-  return reinterpret_cast<TF_Tensor*>(handle);
-}
-
 }
 
 JNIEXPORT void JNICALL Java_org_tensorflow_EagerOperation_delete(
     JNIEnv* env, jclass clazz, jlong handle) {
   if (handle == 0) return;
   TFE_DeleteOp(reinterpret_cast<TFE_Op*>(handle));
-}
-
-JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerOperation_allocateTensorHandle(
-    JNIEnv* env, jclass clazz, jlong thandle) {
-  TF_Tensor* tensor = requireTensor(env, thandle);
-  TF_Status* status = TF_NewStatus();
-  TFE_TensorHandle* tensor_handle = TFE_NewTensorHandle(tensor, status);
-  if (!throwExceptionIfNotOK(env, status)) {
-    TF_DeleteStatus(status);
-    return 0;
-  }
-  TF_DeleteStatus(status);
-  static_assert(sizeof(jlong) >= sizeof(TFE_TensorHandle*),
-                "Cannot represent a C TFE_TensorHandle as a Java long");
-  return reinterpret_cast<jlong>(tensor_handle);
 }
 
 JNIEXPORT void JNICALL Java_org_tensorflow_EagerOperation_deleteTensorHandle(

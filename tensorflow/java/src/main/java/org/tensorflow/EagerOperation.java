@@ -65,7 +65,7 @@ class EagerOperation extends AbstractOperation implements Closeable {
   }
 
   @Override
-  public long getUnsafeNativeHandle(int outputIndex) {
+  public long getNativeHandle(int outputIndex) {
     if (nativeHandle == 0L) {
       throw new IllegalStateException("This operation has been closed");
     }
@@ -112,8 +112,8 @@ class EagerOperation extends AbstractOperation implements Closeable {
 
   @Override
   public void close() {
-    // Release first our operation handle so we can start returning clean exceptions in case other methods
-    // are being called by other threads (should be prevented by the application, though).
+    // First mark the operation native handle as null so we can return clean exceptions in case other methods
+    // are being called by other threads while we are closing this operation.
     long tmpNativeHandle = nativeHandle;
     nativeHandle = 0L;
     delete(tmpNativeHandle);
@@ -122,7 +122,7 @@ class EagerOperation extends AbstractOperation implements Closeable {
       Tensor<?> tensor = outputTensors.get(i);
       if (tensor != null) {
         tensor.close();
-        tensor = null;
+        outputTensors.set(i, null);
       }
     }
     for (int i = 0; i < outputNativeHandles.length; ++i) {
@@ -145,8 +145,6 @@ class EagerOperation extends AbstractOperation implements Closeable {
   }
   
   private static native void delete(long handle);
-
-  private static native long allocateTensorHandle(long thandle);
 
   private static native void deleteTensorHandle(long handle);
 

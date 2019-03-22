@@ -73,7 +73,7 @@ JNIEXPORT void JNICALL Java_org_tensorflow_EagerSession_delete(
   TFE_DeleteContext(reinterpret_cast<TFE_Context*>(handle));
 }
 
-JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerSession_createOp(
+JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerSession_allocateOperation(
     JNIEnv* env, jclass clazz, jlong handle, jstring name) {
   TFE_Context* context = requireContext(env, handle);
   if (context == nullptr) return 0;

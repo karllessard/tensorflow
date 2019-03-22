@@ -40,10 +40,10 @@ JNIEXPORT void JNICALL Java_org_tensorflow_EagerSession_delete(
 
 /*
  * Class:     org_tensorflow_EagerSession
- * Method:    createOp
+ * Method:    allocateOperation
  * Signature: (JLjava/lang/String;)J
  */
-JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerSession_createOp(
+JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerSession_allocateOperation(
     JNIEnv *, jclass, jlong, jstring);
 
 #ifdef __cplusplus

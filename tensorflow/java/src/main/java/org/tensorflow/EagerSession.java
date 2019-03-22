@@ -201,7 +201,7 @@ public final class EagerSession implements ExecutionEnvironment, AutoCloseable {
     if (resourceCleanupStrategy == ResourceCleanupStrategy.WITH_SAFE_POINTS) {
       nativeResources.tryCleanup();
     }
-    return new EagerOperationBuilder(this, createOp(nativeHandle, type), type, name);
+    return new EagerOperationBuilder(this, allocateOperation(nativeHandle, type), type, name);
   }
   
   /**
@@ -344,7 +344,7 @@ public final class EagerSession implements ExecutionEnvironment, AutoCloseable {
 
   private static native void delete(long handle);
   
-  private static native long createOp(long contextHandle, String name);
+  private static native long allocateOperation(long contextHandle, String name);
 
   static {
     TensorFlow.init();

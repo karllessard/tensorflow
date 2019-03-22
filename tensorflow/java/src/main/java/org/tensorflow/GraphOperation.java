@@ -114,7 +114,7 @@ public final class GraphOperation extends AbstractOperation {
   }
   
   @Override
-  long getNativeHandle(int outputIdx) {
+  long getUnsafeNativeHandle(int outputIdx) {
     return getUnsafeNativeHandle();
   }
 

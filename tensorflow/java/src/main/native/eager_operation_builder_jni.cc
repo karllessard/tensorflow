@@ -13,16 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/java/src/main/native/eager_operation_builder_jni.h"
 
 #include <cstring>
 #include <memory>
 #include <set>
-#include "tensorflow/c/eager/c_api_internal.h"
+#include "tensorflow/c/eager/c_api.h"
+#include "tensorflow/java/src/main/native/eager_operation_builder_jni.h"
 #include "tensorflow/java/src/main/native/exception_jni.h"
-#include "tensorflow/core/framework/op_def.pb.h"
-#include "tensorflow/core/common_runtime/eager/attr_builder.h"
-#include "tensorflow/core/framework/types.h"
 
 namespace {
 

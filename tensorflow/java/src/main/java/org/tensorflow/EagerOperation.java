@@ -15,25 +15,15 @@ limitations under the License.
 
 package org.tensorflow;
 
-import java.io.Closeable;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * Implementation for an {@link Operation} executed eagerly.
- *
- * <p>EagerOperation resources are automatically released when the {@link EagerSession} they are a
- * part of is closed. Thus, if {@link EagerSession#close()} has been invoked, then methods on the 
- * EagerOperation instance may fail with an {@code IllegalStateException}.
- *
- * <p>As opposed to {@link GraphOperation}, the application is responsible to make sure that no other
- * thread is using an EagerOperation while its {@link EagerSession} is being closed. This is to
- * improve performances. Other than that, EagerOperation instances are immutable and thread-safe.
  */
-class EagerOperation extends AbstractOperation implements Closeable {
+class EagerOperation extends AbstractOperation {
   
-  EagerOperation(long nativeHandle, long[] outputNativeHandles, String type, String name) {
-    this.nativeHandle = nativeHandle;
-    this.outputNativeHandles = outputNativeHandles;
+  EagerOperation(EagerSession session, long nativeHandle, long[] outputNativeHandles, String type, String name) {
+    this.nativeRef = new NativeReference(session, this, nativeHandle, outputNativeHandles);
     this.outputTensors = new AtomicReferenceArray<Tensor<?>>(outputNativeHandles.length);
     this.type = type;
     this.name = name;
@@ -51,25 +41,22 @@ class EagerOperation extends AbstractOperation implements Closeable {
 
   @Override
   public int numOutputs() {
-    return outputNativeHandles.length;
+    return nativeRef.tensorHandles.length;
   }
 
   @Override
   public int outputListLength(final String name) {
-    return outputListLength(getNativeHandle(), name);
+    return outputListLength(nativeRef.opHandle, name);
   }
 
   @Override
   public int inputListLength(final String name) {
-    return inputListLength(getNativeHandle(), name);
+    return inputListLength(nativeRef.opHandle, name);
   }
 
   @Override
-  public long getNativeHandle(int outputIndex) {
-    if (nativeHandle == 0L) {
-      throw new IllegalStateException("This operation has been closed");
-    }
-    return outputNativeHandles[outputIndex];
+  public long getUnsafeNativeHandle(int outputIndex) {
+    return nativeRef.tensorHandles[outputIndex];
   }
 
   @Override
@@ -78,7 +65,7 @@ class EagerOperation extends AbstractOperation implements Closeable {
     if (tensor != null) {
       return tensor.shape();
     }
-    long outputNativeHandle = getNativeHandle(outputIndex);
+    long outputNativeHandle = getUnsafeNativeHandle(outputIndex);
     long[] shape = new long[numDims(outputNativeHandle)];
     for (int i = 0; i < shape.length; ++i) {
       shape[i] = dim(outputNativeHandle, i);
@@ -92,7 +79,7 @@ class EagerOperation extends AbstractOperation implements Closeable {
     if (tensor != null) {
       return tensor.dataType();
     }
-    return DataType.fromC(dataType(getNativeHandle(outputIndex)));
+    return DataType.fromC(dataType(getUnsafeNativeHandle(outputIndex)));
   }
   
   @Override
@@ -101,7 +88,7 @@ class EagerOperation extends AbstractOperation implements Closeable {
     if (tensor == null) {
       // Take an optimistic approach, where we attempt to resolve the output tensor without locking.
       // If another thread resolved it meanwhile, release our copy and use the existing one.
-      tensor = Tensor.fromHandle(resolveTensorHandle(getNativeHandle(outputIndex)));
+      tensor = Tensor.fromHandle(resolveTensorHandle(getUnsafeNativeHandle(outputIndex)));
       if (!outputTensors.compareAndSet(outputIndex, null, tensor)) {
         tensor.close();
         tensor = outputTensors.get(outputIndex);
@@ -110,40 +97,30 @@ class EagerOperation extends AbstractOperation implements Closeable {
     return tensor;
   }
 
-  @Override
-  public void close() {
-    // First mark the operation native handle as null so we can return clean exceptions in case other methods
-    // are being called by other threads while we are closing this operation (good practice is to prevent
-    // this to happen on the application side).
-    long tmpNativeHandle = getNativeHandle();
-    nativeHandle = 0L;
-    delete(tmpNativeHandle);
+  private static class NativeReference extends EagerSession.NativeReference {
 
-    for (int i = 0; i < outputTensors.length(); ++i) {
-      Tensor<?> tensor = outputTensors.get(i);
-      if (tensor != null) {
-        tensor.close();
-        outputTensors.set(i, null);
+    NativeReference(EagerSession session, EagerOperation operation, long opHandle, long[] tensorHandles) {
+      super(session, operation);
+      this.opHandle = opHandle;
+      this.tensorHandles = tensorHandles;
+    }
+
+    @Override
+    void delete() {
+      for (long tensorHandle : tensorHandles) {
+        EagerOperation.deleteTensorHandle(tensorHandle);
       }
+      EagerOperation.delete(opHandle);
     }
-    for (int i = 0; i < outputNativeHandles.length; ++i) {
-      deleteTensorHandle(outputNativeHandles[i]);
-      outputNativeHandles[i] = 0L;
-    }
+    
+    private final long opHandle;
+    private final long[] tensorHandles;
   }
 
-  private long nativeHandle;
-  private final long[] outputNativeHandles;  // all values are set to a valid native tensor handle
+  private final NativeReference nativeRef;
   private final AtomicReferenceArray<Tensor<?>> outputTensors;  // only tensors that has been accessed so far are non-null
   private final String type;
   private final String name;
-  
-  private long getNativeHandle() {
-    if (nativeHandle == 0L) {
-      throw new IllegalStateException("This operation has been closed");
-    }
-    return nativeHandle;
-  }
   
   private static native void delete(long handle);
 

@@ -18,10 +18,9 @@ limitations under the License.
 #include <string.h>
 #include <algorithm>
 #include <memory>
-
-#include "tensorflow/c/eager/c_api_internal.h"
-#include "tensorflow/java/src/main/native/exception_jni.h"
+#include "tensorflow/c/eager/c_api.h"
 #include "tensorflow/java/src/main/native/eager_operation_jni.h"
+#include "tensorflow/java/src/main/native/exception_jni.h"
 
 namespace {
 

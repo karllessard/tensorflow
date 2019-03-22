@@ -56,7 +56,7 @@ abstract class AbstractOperation implements Operation {
    * @param outputIdx index of the output in this operation
    * @return a native handle, see method description for more details
    */
-  abstract long getNativeHandle(int outputIdx);
+  abstract long getUnsafeNativeHandle(int outputIdx);
 
   /** 
    * Returns the shape of the tensor at the {@code outputIdx}th output of this operation.

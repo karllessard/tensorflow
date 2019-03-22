@@ -538,6 +538,10 @@ public final class Tensor<T> implements AutoCloseable {
     dst.put(src);
   }
 
+  public ByteBuffer buffer() {
+    return buffer(nativeHandle).order(ByteOrder.nativeOrder());
+  }
+
   /** Returns a string describing the type and shape of the Tensor. */
   @Override
   public String toString() {
@@ -567,10 +571,6 @@ public final class Tensor<T> implements AutoCloseable {
 
   private Tensor(DataType t) {
     dtype = t;
-  }
-
-  private ByteBuffer buffer() {
-    return buffer(nativeHandle).order(ByteOrder.nativeOrder());
   }
 
   private static IllegalArgumentException incompatibleBuffer(Buffer buf, DataType dataType) {

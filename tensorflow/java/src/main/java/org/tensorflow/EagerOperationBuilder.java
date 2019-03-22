@@ -12,26 +12,32 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+
 package org.tensorflow;
 
-import java.io.Closeable;
 import java.nio.charset.Charset;
 
-final class EagerOperationBuilder implements OperationBuilder, Closeable {
+final class EagerOperationBuilder implements OperationBuilder {
+
+  EagerOperationBuilder(EagerSession session, long nativeHandle, String type, String name) {
+    this.session = session;
+    this.type = type;
+    this.name = name;
+    this.nativeRef = new NativeReference(session, this, nativeHandle);
+  }
 
   @Override
   public Operation build() {
-    long[] outputNativeHandles = execute(nativeHandle);
-    EagerOperation op = new EagerOperation(nativeHandle, outputNativeHandles, type, name);
-    // From now on, the EagerOperation will carry the op native handle, so detach it from this builder
-    session.allocatedResources().remove(this);
-    nativeHandle = 0L;
+    long[] outputNativeHandles = execute(nativeRef.opHandle);
+    EagerOperation op = new EagerOperation(session, nativeRef.opHandle, outputNativeHandles, type, name);
+    // We won't need a reference to the native operation anymore, it will be carried by the EagerOperation.
+    nativeRef.clear();
     return op;
   }
 
   @Override
   public EagerOperationBuilder addInput(Output<?> input) {
-    addInput(nativeHandle, input.getNativeHandle());
+    addInput(nativeRef.opHandle, input.getNativeHandle());
     return this;
   }
 
@@ -41,19 +47,18 @@ final class EagerOperationBuilder implements OperationBuilder, Closeable {
     for (int i = 0; i < inputs.length; ++i) {
       inputHandles[i] = inputs[i].getNativeHandle();
     }
-    addInputList(nativeHandle, inputHandles);
+    addInputList(nativeRef.opHandle, inputHandles);
     return this;
   }
 
   @Override
   public OperationBuilder addControlInput(Operation control) {
-    // FIXME (karllessard) maybe we can support them by executing the control operation right away?
     throw new UnsupportedOperationException("Control inputs are not supported in eager mode");
   }
 
   @Override
   public OperationBuilder setDevice(String device) {
-    setDevice(nativeHandle, device);
+    setDevice(nativeRef.opHandle, device);
     return this;
   }
 
@@ -69,55 +74,55 @@ final class EagerOperationBuilder implements OperationBuilder, Closeable {
     for (int i = 0; i < values.length; ++i) {
       objects[i] = values[i].getBytes(utf8);
     }
-    setAttrStringList(nativeHandle, name, values);
+    setAttrStringList(nativeRef.opHandle, name, values);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, byte[] values) {
-    setAttrString(nativeHandle, name, values);
+    setAttrString(nativeRef.opHandle, name, values);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, long value) {
-    setAttrInt(nativeHandle, name, value);
+    setAttrInt(nativeRef.opHandle, name, value);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, long[] values) {
-    setAttrIntList(nativeHandle, name, values);
+    setAttrIntList(nativeRef.opHandle, name, values);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, float value) {
-    setAttrFloat(nativeHandle, name, value);
+    setAttrFloat(nativeRef.opHandle, name, value);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, float[] values) {
-    setAttrFloatList(nativeHandle, name, values);
+    setAttrFloatList(nativeRef.opHandle, name, values);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, boolean value) {
-    setAttrBool(nativeHandle, name, value);
+    setAttrBool(nativeRef.opHandle, name, value);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, boolean[] values) {
-    setAttrBoolList(nativeHandle, name, values);
+    setAttrBoolList(nativeRef.opHandle, name, values);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, DataType value) {
-    setAttrType(nativeHandle, name, value.c());
+    setAttrType(nativeRef.opHandle, name, value.c());
     return this;
   }
 
@@ -127,25 +132,25 @@ final class EagerOperationBuilder implements OperationBuilder, Closeable {
     for (int i = 0; i < values.length; ++i) {
       c[i] = values[i].c();
     }
-    setAttrTypeList(nativeHandle, name, c);
+    setAttrTypeList(nativeRef.opHandle, name, c);
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, Tensor<?> value) {
-    setAttrTensor(nativeHandle, name, value.getNativeHandle());
+    setAttrTensor(nativeRef.opHandle, name, value.getNativeHandle());
     return this;
   }
 
   @Override
   public OperationBuilder setAttr(String name, Tensor<?>[] values) {
-    // TODO (karllessard) could be added to the C API if really needed
+    // TODO (karllessard) could be supported by adding this attribute type in the eager C API, if we really want it
     throw new UnsupportedOperationException("Tensor list attributes are not supported in eager mode");
   }
 
   @Override
   public OperationBuilder setAttr(String name, Shape value) {
-    setAttrShape(nativeHandle, name, value.asArray(), value.numDimensions());
+    setAttrShape(nativeRef.opHandle, name, value.asArray(), value.numDimensions());
     return this;
   }
 
@@ -171,30 +176,30 @@ final class EagerOperationBuilder implements OperationBuilder, Closeable {
         }
       }
     }
-    setAttrShapeList(nativeHandle, name, shapes, numDimensions);
+    setAttrShapeList(nativeRef.opHandle, name, shapes, numDimensions);
     return this;
   }
 
-  @Override
-  public void close() {
-    if (nativeHandle != 0L) {
-      delete(nativeHandle);
-      nativeHandle = 0L;
-    }
-  }
+  private static class NativeReference extends EagerSession.NativeReference {
 
-  EagerOperationBuilder(EagerSession session, long nativeHandle, String type, String name) {
-    this.session = session;
-    this.type = type;
-    this.name = name;
-    this.nativeHandle = nativeHandle;
+    NativeReference(EagerSession session, EagerOperationBuilder operation, long opHandle) {
+      super(session, operation);
+      this.opHandle = opHandle;
+    }
+
+    @Override
+    void delete() {
+      EagerOperationBuilder.delete(opHandle);
+    }
+    
+    private final long opHandle;
   }
 
   private final EagerSession session;
   private final String type;
   private final String name;
-  private long nativeHandle;
-  
+  private final NativeReference nativeRef;
+
   private static native void delete(long opHandle);
   
   private static native long[] execute(long opHandle);

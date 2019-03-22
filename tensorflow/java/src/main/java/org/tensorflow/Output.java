@@ -99,7 +99,7 @@ public final class Output<T> implements Operand<T> {
   }
 
   long getNativeHandle() {
-    return operation.getNativeHandle(index);
+    return operation.getUnsafeNativeHandle(index);
   }
   
   private final AbstractOperation operation;

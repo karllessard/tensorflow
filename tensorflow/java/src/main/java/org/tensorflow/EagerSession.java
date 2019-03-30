@@ -255,8 +255,7 @@ public final class EagerSession implements ExecutionEnvironment, AutoCloseable {
       nativeResources.tryCleanup();
     }
     checkSession();
-    // TODO (karllessard) create a new EagerOperationBuilder
-    throw new UnsupportedOperationException("Eager execution mode is not yet supported in this version of TensorFlow");
+    return new EagerOperationBuilder(this, allocateOperation(nativeHandle, type), type, name);
   }
   
   /**

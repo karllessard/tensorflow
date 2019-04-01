@@ -17,19 +17,24 @@ package org.tensorflow;
 
 import java.nio.charset.Charset;
 
+/** 
+ * An {@link OperationBuilder} for building {@link Operation}s that are executed eagerly.
+ */
 final class EagerOperationBuilder implements OperationBuilder {
 
-  EagerOperationBuilder(EagerSession session, long nativeHandle, String type, String name) {
+  EagerOperationBuilder(EagerSession session, String type, String name) {
     this.session = session;
     this.type = type;
     this.name = name;
-    this.nativeRef = new NativeReference(session, this, nativeHandle);
+    this.nativeRef = new NativeReference(session, this, allocate(session.nativeHandle(), type));
   }
 
   @Override
   public Operation build() {
-    // TODO (karllessard) Execute the eager operation and pass output tensor handles to new EagerOperation class
-    throw new UnsupportedOperationException("Eager execution is not supported yet");
+    long[] tensorHandles = execute(nativeRef.opHandle);
+    Operation operation = new EagerOperation(session, nativeRef.opHandle, tensorHandles, type, name);
+    nativeRef.clear();  // release this reference to the native operation now that we built and wrapped it
+    return operation;
   }
 
   @Override
@@ -50,7 +55,7 @@ final class EagerOperationBuilder implements OperationBuilder {
 
   @Override
   public OperationBuilder addControlInput(Operation control) {
-    throw new UnsupportedOperationException("Control inputs are not supported in eager mode");
+    throw new UnsupportedOperationException("Control inputs are not supported in an eager execution environment");
   }
 
   @Override
@@ -141,7 +146,7 @@ final class EagerOperationBuilder implements OperationBuilder {
 
   @Override
   public OperationBuilder setAttr(String name, Tensor<?>[] values) {
-    // TODO (karllessard) could be supported by adding this attribute type in the eager C API, if we really want it
+    // TODO (karllessard) could be supported by adding this attribute type in the eager C API
     throw new UnsupportedOperationException("Tensor list attributes are not supported in eager mode");
   }
 
@@ -185,17 +190,28 @@ final class EagerOperationBuilder implements OperationBuilder {
     }
 
     @Override
-    void delete() {
-      EagerOperationBuilder.delete(opHandle);
+    public void clear() {
+      super.clear();
+      opHandle = 0L;
+    }
+
+    @Override
+    synchronized void delete() {
+      if (opHandle != 0L) {
+        EagerOperationBuilder.delete(opHandle);
+        opHandle = 0L;
+      }
     }
     
-    private final long opHandle;
+    private long opHandle;
   }
 
   private final EagerSession session;
   private final String type;
   private final String name;
   private final NativeReference nativeRef;
+  
+  private static native long allocate(long ctxHandle, String type);
 
   private static native void delete(long opHandle);
   

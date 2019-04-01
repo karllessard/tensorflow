@@ -652,6 +652,11 @@ public final class Constant<T> extends PrimitiveOp implements Operand<T> {
     return output;
   }
 
+  @Override
+  public Tensor<T> asTensor() {
+    return output.asTensor();
+  }
+
   private Constant(Operation operation) {
     super(operation);
     output = operation.output(0);

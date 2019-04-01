@@ -1,4 +1,4 @@
-/* Copyright 2018 The TensorFlow Authors. All Rights Reserved.
+/* Copyright 2019 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef TENSORFLOW_JAVA_SRC_MAIN_NATIVE_EAGER_SESSION_JNI_H_
-#define TENSORFLOW_JAVA_SRC_MAIN_NATIVE_EAGER_SESSION_JNI_H_
+#ifndef TENSORFLOW_JAVA_SRC_MAIN_NATIVE_EAGER_CONSTANT_JNI_H_
+#define TENSORFLOW_JAVA_SRC_MAIN_NATIVE_EAGER_CONSTANT_JNI_H_
 
 #include <jni.h>
 
@@ -23,22 +23,14 @@ extern "C" {
 #endif
 
 /*
- * Class:     org_tensorflow_EagerSession
- * Method:    allocate
- * Signature: (ZI[B)J
- */
-JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerSession_allocate(
-    JNIEnv* env, jclass clazz, jboolean async, jint dpp, jbyteArray config);
-
-/*
- * Class:     org_tensorflow_EagerSession
- * Method:    delete
+ * Class:     org_tensorflow_EagerConstant
+ * Method:    deleteTensorHandle
  * Signature: (J)V
  */
-JNIEXPORT void JNICALL Java_org_tensorflow_EagerSession_delete(
+JNIEXPORT void JNICALL Java_org_tensorflow_EagerConstant_deleteTensorHandle(
     JNIEnv *, jclass, jlong);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
-#endif  // TENSORFLOW_JAVA_SRC_MAIN_NATIVE_EAGER_SESSION_JNI_H_
+#endif  // TENSORFLOW_JAVA_SRC_MAIN_NATIVE_EAGER_CONSTANT_JNI_H_

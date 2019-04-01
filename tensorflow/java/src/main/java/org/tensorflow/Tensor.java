@@ -327,7 +327,7 @@ public final class Tensor<T> implements AutoCloseable {
    */
   @Override
   public void close() {
-    if (nativeHandle != 0) {
+    if (nativeHandle != 0 && eagerNativeRef == null) {
       delete(nativeHandle);
       nativeHandle = 0;
     }
@@ -560,10 +560,15 @@ public final class Tensor<T> implements AutoCloseable {
   long getNativeHandle() {
     return nativeHandle;
   }
+  
+  void attachTo(EagerSession session) {
+    eagerNativeRef = new EagerNativeReference(session, this, nativeHandle);
+  }
 
   private long nativeHandle;
   private DataType dtype;
   private long[] shapeCopy = null;
+  private EagerNativeReference eagerNativeRef = null;
 
   private Tensor(DataType t) {
     dtype = t;
@@ -607,6 +612,21 @@ public final class Tensor<T> implements AutoCloseable {
       throw new IllegalArgumentException(
           "object cannot be converted to a Tensor as it includes an array with null elements");
     }
+  }
+
+  private static class EagerNativeReference extends EagerSession.NativeReference {
+
+    EagerNativeReference(EagerSession session, Tensor<?> tensor, long tensorHandle) {
+      super(session, tensor);
+      this.tensorHandle = tensorHandle;
+    }
+
+    @Override
+    void delete() {
+      Tensor.delete(tensorHandle);
+    }
+    
+    private final long tensorHandle;
   }
 
   private static HashMap<Class<?>, DataType> classDataTypes = new HashMap<>();

@@ -19,6 +19,7 @@ import java.nio.ByteBuffer;
 import org.tensorflow.DataType;
 import org.tensorflow.Operand;
 import org.tensorflow.Output;
+import org.tensorflow.Tensor;
 import org.tensorflow.op.Op;
 import org.tensorflow.op.Scope;
 import org.tensorflow.op.annotation.Operator;
@@ -58,6 +59,11 @@ public class Zeros<T> implements Op, Operand<T> {
   @Override
   public Output<T> asOutput() {
     return fill.asOutput();
+  }
+
+  @Override
+  public Tensor<T> asTensor() {
+    return asOutput().asTensor();
   }
   
   private final Fill<T> fill;

@@ -45,4 +45,6 @@ public interface Operand<T> {
    * @see OperationBuilder#addInput(Output)
    */
   Output<T> asOutput();
+  
+  Tensor<T> asTensor();
 }

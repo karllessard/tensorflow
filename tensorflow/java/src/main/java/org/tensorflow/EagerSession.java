@@ -22,6 +22,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * An environment for executing TensorFlow operations eagerly.
@@ -227,6 +228,35 @@ public final class EagerSession implements ExecutionEnvironment, AutoCloseable {
   public static EagerSession create() {
     return options().build();
   }
+  
+  /**
+   * Enable default eager session, which remains active for the lifetime of the application.
+   * 
+   * This should be called only once and is call implicitly on the first call to 'getDefault()',
+   * using default options.
+   */
+  public static void enableDefault(Options options) {
+    if (defaultSession.get() != null) {
+      throw new IllegalStateException("Default eager session can only be enabled once");
+    }
+    EagerSession session = options != null ? options.build() : create();
+    if (!defaultSession.compareAndSet(null, session)) {
+      session.close();  // another thread was faster than us
+    }
+  }
+  
+  /**
+   * Retrieve a reference to the default eager session and enables it with default options, 
+   * if it has not been done yet.
+   */
+  public static EagerSession getDefault() {
+    if (defaultSession.get() == null) {
+      enableDefault(null);
+    }
+    return defaultSession.get();
+  }
+  
+  private static final AtomicReference<EagerSession> defaultSession = new AtomicReference<>();
 
   private EagerSession(Options options) {
     this.nativeHandle = allocate(options.async, options.devicePlacementPolicy.code, options.config);
@@ -255,7 +285,15 @@ public final class EagerSession implements ExecutionEnvironment, AutoCloseable {
       nativeResources.tryCleanup();
     }
     checkSession();
-    return new EagerOperationBuilder(this, allocateOperation(nativeHandle, type), type, name);
+    if ("Const".equals(type)) {
+      return new EagerConstantBuilder(this, name);
+    }
+    return new EagerOperationBuilder(this, type, name);
+  }
+  
+  long nativeHandle() {
+    checkSession();
+    return nativeHandle;
   }
   
   /**
@@ -416,8 +454,6 @@ public final class EagerSession implements ExecutionEnvironment, AutoCloseable {
   private static native long allocate(boolean async, int devicePlacementPolicy, byte[] config);
 
   private static native void delete(long handle);
-  
-  private static native long allocateOperation(long contextHandle, String name);
 
   static {
     TensorFlow.init();

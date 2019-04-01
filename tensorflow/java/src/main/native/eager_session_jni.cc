@@ -20,19 +20,6 @@ limitations under the License.
 #include "tensorflow/java/src/main/native/exception_jni.h"
 #include "tensorflow/java/src/main/native/eager_session_jni.h"
 
-namespace {
-
-TFE_Context* requireContext(JNIEnv* env, jlong handle) {
-  if (handle == 0) {
-    throwException(env, kIllegalStateException,
-                   "Context has been deleted");
-    return nullptr;
-  }
-  return reinterpret_cast<TFE_Context*>(handle);
-}
-
-}  // namespace
-
 JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerSession_allocate(
     JNIEnv* env, jclass clazz, jboolean async, jint dpp, jbyteArray config) {
   TFE_ContextOptions* opts = TFE_NewContextOptions();
@@ -71,22 +58,4 @@ JNIEXPORT void JNICALL Java_org_tensorflow_EagerSession_delete(
     JNIEnv* env, jclass clazz, jlong handle) {
   if (handle == 0) return;
   TFE_DeleteContext(reinterpret_cast<TFE_Context*>(handle));
-}
-
-JNIEXPORT jlong JNICALL Java_org_tensorflow_EagerSession_allocateOperation(
-    JNIEnv* env, jclass clazz, jlong handle, jstring name) {
-  TFE_Context* context = requireContext(env, handle);
-  if (context == nullptr) return 0;
-  const char* op_or_function_name = env->GetStringUTFChars(name, nullptr);
-  TF_Status* status = TF_NewStatus();
-  TFE_Op* op = TFE_NewOp(context, op_or_function_name, status);
-  env->ReleaseStringUTFChars(name, op_or_function_name);
-  if (!throwExceptionIfNotOK(env, status)) {
-    TF_DeleteStatus(status);
-    return 0;
-  }
-  TF_DeleteStatus(status);
-  static_assert(sizeof(jlong) >= sizeof(TFE_Op*),
-                "Cannot represent a C TFE_Op as a Java long");
-  return reinterpret_cast<jlong>(op);
 }

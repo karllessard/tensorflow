@@ -81,6 +81,7 @@ void CollectOpDependencies(const OpSpec& op, RenderMode mode,
   out->push_back(Type::Class("Scope", "org.tensorflow.op"));
   if (mode == OPERAND) {
     out->push_back(Type::Class("Output", "org.tensorflow"));
+    out->push_back(Type::Class("Tensor", "org.tensorflow"));
   } else if (mode == LIST_OPERAND) {
     out->push_back(Type::Interface("Iterator", "java.util"));
   }
@@ -340,10 +341,12 @@ void RenderInterfaceImpl(const OpSpec& op, RenderMode mode,
 
   if (mode == OPERAND) {
     bool cast2obj = output.type().wildcard();
-    Type return_type =
+    Type output_type =
         Type::Class("Output", "org.tensorflow")
             .add_parameter(cast2obj ? Type::Class("Object") : output.type());
-    Method as_output = Method::Create("asOutput", return_type)
+
+    // asOutput()
+    Method as_output = Method::Create("asOutput", output_type)
                            .add_annotation(Annotation::Create("Override"));
     if (cast2obj) {
       as_output.add_annotation(
@@ -351,11 +354,22 @@ void RenderInterfaceImpl(const OpSpec& op, RenderMode mode,
     }
     writer->BeginMethod(as_output, PUBLIC);
     if (cast2obj) {
-      writer->Append("return (").AppendType(return_type).Append(") ");
+      writer->Append("return (").AppendType(output_type).Append(") ");
     } else {
       writer->Append("return ");
     }
     writer->Append(output.var().name() + ";").EndLine().EndMethod();
+
+    // asTensor()
+    Type tensor_type =
+        Type::Class("Tensor", "org.tensorflow")
+            .add_parameter(cast2obj ? Type::Class("Object") : output.type());
+    Method as_tensor = Method::Create("asTensor", tensor_type)
+                           .add_annotation(Annotation::Create("Override"));
+    writer->BeginMethod(as_tensor, PUBLIC)
+        .Append("return asOutput().asTensor();")
+        .EndLine()
+        .EndMethod();
 
   } else if (mode == LIST_OPERAND) {
     Type operand = Type::Interface("Operand", "org.tensorflow");

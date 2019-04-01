@@ -52,6 +52,12 @@ public final class Output<T> implements Operand<T> {
   public Output<T> asOutput() {
     return this;
   }
+  
+  @SuppressWarnings("unchecked")
+  @Override
+  public Tensor<T> asTensor() {
+    return (Tensor<T>)operation.tensor(index);
+  }
 
   @Override
   public int hashCode() {

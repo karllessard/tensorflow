@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-package org.tensorflow.op.core;
+package org.tensorflow.op.train;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -48,7 +48,7 @@ import org.tensorflow.op.annotation.Operator;
  * ApplyGradientDescent.create(scope, b, alpha, gradients.<Float>dy(1));
  * }</pre>
  */
-@Operator
+@Operator(group = "train")
 public class Gradients implements Op, Iterable<Operand<?>> {
 
   /**
